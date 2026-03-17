@@ -182,7 +182,7 @@ Regra de marcacao:
 - [x] Atividade 1 - Preparacao de contas, chaves e ambiente local
 - [x] Atividade 2 - Inicializacao do projeto Node.js e estrutura de pastas
 - [x] Atividade 3 - Criar projeto Supabase e banco inicial
-- [ ] Atividade 4 - Configurar bot Telegram e webhook
+- [x] Atividade 4 - Configurar bot Telegram e webhook
 - [ ] Atividade 5 - Integrar OpenAI (texto) para analise nutricional
 - [ ] Atividade 6 - Definir persona da IA nutricionista (OpenAI)
 - [ ] Atividade 7 - Integrar foto de refeicao (visao) e registrar no banco
