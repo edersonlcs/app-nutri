@@ -1,4 +1,4 @@
-# APP-NUTRI - Plano de Atividades (Passo a Passo)
+# EdeVida - Plano de Atividades (Passo a Passo)
 
 ## Como vamos trabalhar
 
@@ -44,9 +44,9 @@ Arquitetura pensada para:
 ## Estrutura de Pastas (alvo)
 
 ```txt
-app-nutri/
+edevida/
   doc-ia/
-    atividades-app-nutri.md
+    atividades-edevida.md
   temp/
   apps/
     api/                 # Node.js + Telegram webhook + regras
@@ -210,7 +210,7 @@ Ao final desta atividade voce tera:
 2. Clique em **New project**.
 3. Defina:
    - Organization: a sua.
-   - Name: `app-nutri` (ou `app-nutri-prod`).
+   - Name: `edevida` (ou `edevida-prod`).
    - Database Password: crie uma senha forte e guarde.
    - Region: escolha a mais proxima do Brasil (normalmente Sao Paulo).
 4. Aguarde o provisionamento (pode levar alguns minutos).
@@ -226,8 +226,8 @@ Ao final desta atividade voce tera:
 1. No Telegram, abra o chat **@BotFather**.
 2. Execute `/newbot`.
 3. Defina:
-   - nome do bot (ex: Nutri Ederson).
-   - username terminado com `bot` (ex: `ederson_nutri_bot`).
+   - nome do bot (ex: EdeVida Assistente).
+   - username terminado com `bot` (ex: `edevida_ederson_bot`).
 4. O BotFather retornara o **BOT TOKEN**. Guarde com cuidado.
 5. (Opcional agora) Defina foto e descricao com:
    - `/setuserpic`
@@ -344,7 +344,7 @@ Se qualquer item nao estiver ok, ficamos nesta atividade ate resolver.
 ## Modelo de commit (quando atividade for concluida)
 
 ```txt
-docs: cria plano inicial de atividades do app-nutri
+docs: cria plano inicial de atividades da EdeVida
 ```
 
 Descricao sugerida do commit:
