@@ -24,6 +24,7 @@ Teremos 3 frentes principais:
 
 2. **API Node.js (backend central)**
    - Regras de negocio (nutricao, registros, relatorios).
+   - Cadastro completo de dados para acompanhamento (peso, altura, medidas, exames, bioimpedancia e treino).
    - Integracao com Supabase.
    - Integracao com OpenAI.
    - Persona fixa da IA (nutricionista pessoal) com comportamento e limites definidos.
@@ -31,6 +32,7 @@ Teremos 3 frentes principais:
 
 3. **Painel Web (acompanhamento)**
    - Dashboard simples com historico de refeicoes, peso e indicadores.
+   - Tela para registrar/editar dados corporais, exames medicos e bioimpedancia.
    - Area para relatorios (dia, semana, mes).
 
 Arquitetura pensada para:
@@ -62,6 +64,62 @@ Observacao: podemos simplificar ou expandir conforme evoluirmos.
 
 ---
 
+## Escopo de Dados de Acompanhamento (Nutricionista + Personal)
+
+Este sera o pacote de dados que vamos preparar para acompanhar sua evolucao.
+
+1. **Perfil base**
+   - nome/apelido
+   - data de nascimento
+   - sexo biologico
+   - altura (cm)
+   - rotina (trabalho, horarios, nivel de atividade)
+
+2. **Objetivos**
+   - objetivo principal (ex: perder gordura, ganhar massa, recomposicao)
+   - peso alvo
+   - prazo alvo
+   - prioridade (saude, estetica, performance)
+
+3. **Registros corporais periodicos**
+   - peso (kg)
+   - IMC (calculado)
+   - percentual de gordura (se houver)
+   - medidas corporais (cintura, abdomen, quadril, peito, braco, coxa, panturrilha)
+   - fotos de progresso (opcional)
+
+4. **Bioimpedancia**
+   - data da medicao
+   - percentual de gordura
+   - massa muscular
+   - gordura visceral
+   - agua corporal
+   - metabolismo basal (BMR)
+   - idade metabolica (se disponivel)
+
+5. **Exames medicos e checkup**
+   - data do exame
+   - tipo de exame (hemograma, glicemia, lipidograma, etc.)
+   - marcadores principais e valores
+   - arquivo anexado (PDF/imagem), quando aplicavel
+   - observacoes relevantes
+
+6. **Historico de saude**
+   - condicoes pre-existentes
+   - alergias/intolerancias
+   - medicamentos em uso
+   - lesoes e limitacoes fisicas
+
+7. **Rotina de alimentacao e treino**
+   - refeicoes registradas (texto, audio, foto)
+   - ingestao de agua
+   - treinos planejados e executados
+   - tempo de sono e recuperacao
+
+Observacao: no MVP vamos priorizar peso, altura, medidas principais, exames de checkup e bioimpedancia.
+
+---
+
 ## Backlog de Atividades
 
 ### Atividade 1 - Preparacao de contas, chaves e ambiente local (**iniciar por aqui**)
@@ -71,7 +129,7 @@ Objetivo: deixar tudo pronto para comecar a codar sem travas.
 Objetivo: criar base da API com organizacao limpa e escalavel.
 
 ### Atividade 3 - Criar projeto Supabase e banco inicial
-Objetivo: modelar tabelas principais (perfil, refeicoes, registros corporais, exames medicos, bioimpedancia, logs IA).
+Objetivo: modelar tabelas principais (perfil, objetivos, registros corporais, medidas corporais, exames medicos, bioimpedancia, refeicoes, treinos e logs IA).
 
 ### Atividade 4 - Configurar bot Telegram e webhook
 Objetivo: receber mensagens de texto no backend.
@@ -89,7 +147,7 @@ Objetivo: analisar imagem e transformar em registro alimentar.
 Objetivo: converter audio em texto, analisar e registrar.
 
 ### Atividade 9 - Registrar e analisar exames medicos e bioimpedancia
-Objetivo: guardar historico periodico, comparar resultados e gerar analise de melhoria.
+Objetivo: guardar historico periodico, comparar resultados e gerar analise de melhoria junto com alimentacao e treino.
 
 ### Atividade 10 - Criar regras de relatorio diario/semanal
 Objetivo: ter resumo automatico de alimentacao e progresso.
@@ -108,6 +166,28 @@ Objetivo: deixar estrutura pronta para personal trainer + impacto na dieta.
 
 ---
 
+## Controle de Progresso das Atividades
+
+Regra de marcacao:
+- Eu so marco uma atividade como concluida (`[x]`) quando voce disser que finalizou e autorizar ir para a proxima.
+
+- [ ] Atividade 1 - Preparacao de contas, chaves e ambiente local
+- [ ] Atividade 2 - Inicializacao do projeto Node.js e estrutura de pastas
+- [ ] Atividade 3 - Criar projeto Supabase e banco inicial
+- [ ] Atividade 4 - Configurar bot Telegram e webhook
+- [ ] Atividade 5 - Integrar OpenAI (texto) para analise nutricional
+- [ ] Atividade 6 - Definir persona da IA nutricionista (OpenAI)
+- [ ] Atividade 7 - Integrar foto de refeicao (visao) e registrar no banco
+- [ ] Atividade 8 - Integrar audio (transcricao) e registrar no banco
+- [ ] Atividade 9 - Registrar e analisar exames medicos e bioimpedancia
+- [ ] Atividade 10 - Criar regras de relatorio diario/semanal
+- [ ] Atividade 11 - Criar painel web inicial
+- [ ] Atividade 12 - Deploy na VPS (producao atual)
+- [ ] Atividade 13 - Preparar migracao para Hostinger (Node hosting)
+- [ ] Atividade 14 - Preparar base para modulo futuro de atividade fisica
+
+---
+
 ## ATIVIDADE 1 (Detalhada) - Preparacao de contas, chaves e ambiente
 
 ## Resultado esperado da Atividade 1
@@ -118,8 +198,9 @@ Ao final desta atividade voce tera:
 2. Bot do Telegram criado com token ativo.
 3. Chave da OpenAI criada.
 4. Arquivo `.env` local preenchido (sem subir segredo no GitHub).
-5. Documento inicial da persona da IA criado.
-6. Checklist de validacao concluido.
+5. Escopo de dados de acompanhamento validado (nutricionista + personal).
+6. Documento inicial da persona da IA criado.
+7. Checklist de validacao concluido.
 
 ---
 
@@ -198,7 +279,21 @@ Observacoes:
 
 ---
 
-## Passo 5 - Definir persona inicial da IA (documento)
+## Passo 5 - Validar escopo dos seus dados de acompanhamento
+
+Antes de codar, vamos confirmar que o app tera espaco para os dados que voce quer registrar:
+
+1. Altura e peso.
+2. Medidas corporais.
+3. Exames medicos de checkup.
+4. Resultados de bioimpedancia.
+5. Dados de treino e limitacoes fisicas.
+
+Se quiser incluir algo extra (ex: pressao arterial, frequencia cardiaca de repouso), entrara neste passo.
+
+---
+
+## Passo 6 - Definir persona inicial da IA (documento)
 
 Criar um arquivo de referencia para guiar todas as respostas da IA, com:
 
@@ -219,7 +314,7 @@ Criar um arquivo de referencia para guiar todas as respostas da IA, com:
 
 ---
 
-## Passo 6 - Checklist de validacao da Atividade 1
+## Passo 7 - Checklist de validacao da Atividade 1
 
 Marque cada item quando concluir:
 
@@ -227,6 +322,7 @@ Marque cada item quando concluir:
 - [ ] Guardei URL e chaves do Supabase.
 - [ ] Tenho bot Telegram criado e token salvo.
 - [ ] Tenho chave da OpenAI criada.
+- [ ] Tenho validado quais dados vou registrar no acompanhamento.
 - [ ] Tenho definido como a persona da IA deve responder.
 - [ ] Entendi quais segredos nunca vao para GitHub.
 
@@ -256,6 +352,7 @@ Descricao sugerida do commit:
 ```txt
 - adiciona roteiro por etapas em doc-ia
 - detalha atividade 1 (Supabase, Telegram, OpenAI e ambiente)
+- inclui escopo de dados de acompanhamento (nutricao + personal)
 - inclui exames medicos, bioimpedancia e persona da IA no planejamento
 - define fluxo de execucao uma atividade por vez
 ```
