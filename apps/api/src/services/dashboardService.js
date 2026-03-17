@@ -1,5 +1,6 @@
 const { supabase } = require("../integrations/supabaseClient");
 const { listReports } = require("./reportService");
+const { buildClinicalOverview } = require("./clinicalInsightService");
 
 function startOfTodayUtc() {
   const now = new Date();
@@ -23,6 +24,7 @@ async function getDashboardOverview(userId) {
     profileRes,
     measurementRes,
     bioRes,
+    examListRes,
     hydrationRes,
     nutritionRes,
     workoutRes,
@@ -49,6 +51,13 @@ async function getDashboardOverview(userId) {
       .limit(1)
       .maybeSingle(),
     supabase
+      .from("medical_exams")
+      .select("id, exam_name, exam_type, exam_date, markers, created_at")
+      .eq("user_id", userId)
+      .order("exam_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
       .from("hydration_logs")
       .select("amount_ml")
       .eq("user_id", userId)
@@ -68,7 +77,7 @@ async function getDashboardOverview(userId) {
     listReports({ userId, period: "daily", limit: 7 }),
   ]);
 
-  const responses = [userRes, profileRes, measurementRes, bioRes, hydrationRes, nutritionRes, workoutRes];
+  const responses = [userRes, profileRes, measurementRes, bioRes, examListRes, hydrationRes, nutritionRes, workoutRes];
   const failed = responses.find((item) => item.error);
 
   if (failed?.error) {
@@ -76,12 +85,23 @@ async function getDashboardOverview(userId) {
   }
 
   const hydrationTodayMl = (hydrationRes.data || []).reduce((acc, item) => acc + (item.amount_ml || 0), 0);
+  const recentExams = examListRes.data || [];
+  const latestExam = recentExams[0] || null;
+  const latestExamWithMarkers =
+    recentExams.find((exam) => exam?.markers && Object.keys(exam.markers).length > 0) || latestExam;
+  const clinical = buildClinicalOverview({
+    profile: profileRes.data || null,
+    latestBio: bioRes.data || null,
+    latestExam: latestExamWithMarkers,
+  });
 
   return {
     user: userRes.data,
     profile: profileRes.data || null,
     latest_measurement: measurementRes.data || null,
     latest_bioimpedance: bioRes.data || null,
+    latest_exam: latestExam,
+    clinical,
     today: {
       hydration_total_ml: hydrationTodayMl,
       hydration_goal_ml: 3000,

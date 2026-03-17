@@ -132,33 +132,101 @@ async function processTextMessage({ appUser, messageText, source = "telegram" })
   });
 }
 
+async function processImageBufferInput({
+  appUser,
+  imageBuffer,
+  mimeType,
+  caption = "",
+  source = "web",
+  inputType = "photo",
+  extraAiPayload = {},
+}) {
+  if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
+    throw new Error("Imagem invalida");
+  }
+
+  const userContext = await getUserContext(appUser.id);
+  const { parsed, modelUsed, rawResponse } = await analyzeImageNutrition({
+    imageBuffer,
+    mimeType,
+    caption,
+    userContext,
+  });
+
+  const rawInputText = caption || "[foto sem legenda]";
+
+  return persistAnalysis({
+    appUser,
+    source,
+    inputType,
+    modality: "vision",
+    rawInputText,
+    parsed,
+    modelUsed,
+    rawResponse,
+    extraAiPayload,
+  });
+}
+
+async function processAudioBufferInput({
+  appUser,
+  audioBuffer,
+  mimeType,
+  filePathHint = "",
+  source = "web",
+  inputType = "audio",
+  extraAiPayload = {},
+}) {
+  if (!audioBuffer || !Buffer.isBuffer(audioBuffer)) {
+    throw new Error("Audio invalido");
+  }
+
+  const runtimeTempDir = await ensureRuntimeTempDir();
+  const extension = inferExtension(filePathHint, mimeType);
+  const tempFilePath = path.join(runtimeTempDir, `${randomUUID()}${extension}`);
+  await fs.writeFile(tempFilePath, audioBuffer);
+
+  try {
+    const userContext = await getUserContext(appUser.id);
+    const transcription = await transcribeAudioFile({ filePath: tempFilePath });
+    const { parsed, modelUsed, rawResponse } = await analyzeTextNutrition(
+      transcription.transcriptText,
+      userContext
+    );
+
+    return persistAnalysis({
+      appUser,
+      source,
+      inputType,
+      modality: "audio",
+      rawInputText: transcription.transcriptText,
+      parsed,
+      modelUsed: `${transcription.modelUsed}+${modelUsed}`,
+      rawResponse,
+      extraAiPayload: {
+        ...extraAiPayload,
+        transcript_text: transcription.transcriptText,
+      },
+    });
+  } finally {
+    await fs.unlink(tempFilePath).catch(() => {});
+  }
+}
+
 async function processPhotoMessage({ appUser, message, source = "telegram" }) {
   const selectedPhoto = getLargestPhoto(message.photo || []);
   if (!selectedPhoto?.file_id) {
     throw new Error("Foto nao encontrada na mensagem");
   }
 
-  const userContext = await getUserContext(appUser.id);
   const downloaded = await downloadFileBuffer(selectedPhoto.file_id);
-
-  const { parsed, modelUsed, rawResponse } = await analyzeImageNutrition({
+  return processImageBufferInput({
+    appUser,
     imageBuffer: downloaded.buffer,
     mimeType: downloaded.contentType,
     caption: message.caption || "",
-    userContext,
-  });
-
-  const rawInputText = message.caption || "[foto sem legenda]";
-
-  return persistAnalysis({
-    appUser,
     source,
     inputType: "photo",
-    modality: "vision",
-    rawInputText,
-    parsed,
-    modelUsed,
-    rawResponse,
     extraAiPayload: {
       telegram_file_path: downloaded.filePath,
       telegram_content_type: downloaded.contentType,
@@ -172,43 +240,25 @@ async function processAudioMessage({ appUser, message, source = "telegram" }) {
     throw new Error("Audio nao encontrado na mensagem");
   }
 
-  const runtimeTempDir = await ensureRuntimeTempDir();
   const downloaded = await downloadFileBuffer(fileInfo.file_id);
-  const extension = inferExtension(downloaded.filePath, downloaded.contentType);
-  const tempFilePath = path.join(runtimeTempDir, `${randomUUID()}${extension}`);
-
-  await fs.writeFile(tempFilePath, downloaded.buffer);
-
-  try {
-    const userContext = await getUserContext(appUser.id);
-    const transcription = await transcribeAudioFile({ filePath: tempFilePath });
-    const { parsed, modelUsed, rawResponse } = await analyzeTextNutrition(
-      transcription.transcriptText,
-      userContext
-    );
-
-    return persistAnalysis({
-      appUser,
-      source,
-      inputType: "audio",
-      modality: "audio",
-      rawInputText: transcription.transcriptText,
-      parsed,
-      modelUsed: `${transcription.modelUsed}+${modelUsed}`,
-      rawResponse,
-      extraAiPayload: {
-        transcript_text: transcription.transcriptText,
-        telegram_file_path: downloaded.filePath,
-        telegram_content_type: downloaded.contentType,
-      },
-    });
-  } finally {
-    await fs.unlink(tempFilePath).catch(() => {});
-  }
+  return processAudioBufferInput({
+    appUser,
+    audioBuffer: downloaded.buffer,
+    mimeType: downloaded.contentType,
+    filePathHint: downloaded.filePath,
+    source,
+    inputType: "audio",
+    extraAiPayload: {
+      telegram_file_path: downloaded.filePath,
+      telegram_content_type: downloaded.contentType,
+    },
+  });
 }
 
 module.exports = {
   processTextMessage,
   processPhotoMessage,
   processAudioMessage,
+  processImageBufferInput,
+  processAudioBufferInput,
 };

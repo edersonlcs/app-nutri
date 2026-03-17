@@ -1,6 +1,10 @@
 const { asyncHandler } = require("../utils/asyncHandler");
 const { resolveUserId, listUsers, createDefaultUserIfNeeded } = require("../services/userService");
-const { processTextMessage } = require("../services/telegramMessageProcessor");
+const {
+  processTextMessage,
+  processImageBufferInput,
+  processAudioBufferInput,
+} = require("../services/telegramMessageProcessor");
 const { saveAiInteraction } = require("../services/nutritionEntryService");
 const { getUserContext } = require("../services/userContextService");
 const { chatNutritionAdvisor } = require("../services/nutritionAiService");
@@ -523,6 +527,98 @@ const nutritionTextAnalyzeController = asyncHandler(async (req, res) => {
   }
 });
 
+const nutritionImageAnalyzeController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const file = req.file;
+  const caption = String(req.body?.caption || "");
+
+  if (!file) {
+    return res.status(400).json({ ok: false, error: "Arquivo obrigatorio (campo file)" });
+  }
+
+  if (!String(file.mimetype || "").startsWith("image/")) {
+    return res.status(400).json({ ok: false, error: "Envie uma imagem valida (jpg/png/webp)." });
+  }
+
+  try {
+    const result = await processImageBufferInput({
+      appUser: { id: userId },
+      imageBuffer: file.buffer,
+      mimeType: file.mimetype,
+      caption,
+      source: "web",
+      inputType: "photo",
+      extraAiPayload: {
+        web_upload_filename: file.originalname || null,
+        web_upload_mime: file.mimetype || null,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      analyzed: true,
+      quality: result.analysis.quality,
+      analysis: result.analysis,
+      replyText: result.replyText,
+    });
+  } catch (err) {
+    const reason = normalizeOpenAiError(err);
+    return res.status(503).json({
+      ok: false,
+      analyzed: false,
+      reason,
+      message: "Nao foi possivel analisar a imagem no momento.",
+      details: err.message,
+    });
+  }
+});
+
+const nutritionAudioAnalyzeController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({ ok: false, error: "Arquivo obrigatorio (campo file)" });
+  }
+
+  const mimeType = String(file.mimetype || "").toLowerCase();
+  if (!mimeType.startsWith("audio/") && !mimeType.includes("ogg") && !mimeType.includes("mpeg")) {
+    return res.status(400).json({ ok: false, error: "Envie um audio valido (ogg/mp3/m4a/wav)." });
+  }
+
+  try {
+    const result = await processAudioBufferInput({
+      appUser: { id: userId },
+      audioBuffer: file.buffer,
+      mimeType: file.mimetype,
+      filePathHint: file.originalname || "",
+      source: "web",
+      inputType: "audio",
+      extraAiPayload: {
+        web_upload_filename: file.originalname || null,
+        web_upload_mime: file.mimetype || null,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      analyzed: true,
+      quality: result.analysis.quality,
+      analysis: result.analysis,
+      replyText: result.replyText,
+    });
+  } catch (err) {
+    const reason = normalizeOpenAiError(err);
+    return res.status(503).json({
+      ok: false,
+      analyzed: false,
+      reason,
+      message: "Nao foi possivel analisar o audio no momento.",
+      details: err.message,
+    });
+  }
+});
+
 const nutritionChatController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
   const { text } = req.body;
@@ -624,6 +720,8 @@ module.exports = {
   workoutListController,
   nutritionListController,
   nutritionTextAnalyzeController,
+  nutritionImageAnalyzeController,
+  nutritionAudioAnalyzeController,
   nutritionChatController,
   reportGenerateController,
   reportListController,

@@ -159,6 +159,57 @@ function qualityClass(value) {
   return "quality-default";
 }
 
+function slugifyLevel(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function clinicalLabel(item) {
+  if (item?.label) return item.label;
+  const normalized = String(item?.level || "").toLowerCase();
+  if (normalized === "emergencia") return "Emergencia";
+  if (normalized === "ruim") return "Ruim";
+  if (normalized === "ainda_da_para_melhorar") return "Ainda da para melhorar";
+  if (normalized === "bom") return "Bom";
+  if (normalized === "otimo") return "Otimo";
+  return "Sem dado";
+}
+
+function markerImpactText(markerName, direction) {
+  const name = normalizeMarkerName(markerName);
+  const isHigh = direction === "alto";
+
+  if (name.includes("creatinina") || name.includes("ureia") || name.includes("acido urico")) {
+    return isHigh
+      ? "Pode indicar sobrecarga renal e pior filtragem. Hidratacao e ajuste alimentar viram prioridade."
+      : "Pode sugerir alteracao de metabolismo/proteina; vale revisar contexto clinico com medico.";
+  }
+
+  if (name.includes("tgp") || name.includes("alt") || name.includes("tgo") || name.includes("ast") || name.includes("ggt")) {
+    return isHigh
+      ? "Sinal de estresse no figado; excesso de ultraprocessado/alcohol pode piorar."
+      : "Valor baixo isolado costuma ter menor impacto, mas exige leitura do painel completo.";
+  }
+
+  if (name.includes("ldl") || name.includes("colesterol") || name.includes("triglicer")) {
+    return isHigh
+      ? "Aumenta risco cardiovascular; foco em fibra, atividade fisica e corte de gordura trans."
+      : "Valor baixo pode ser favoravel dependendo do marcador, mas deve ser lido com HDL e contexto.";
+  }
+
+  if (name.includes("glicose") || name.includes("glicemia") || name.includes("hba1c") || name.includes("hemoglobina glicada")) {
+    return isHigh
+      ? "Sugere pior controle glicemico e risco metabolico; reduzir picos de carboidrato vira prioridade."
+      : "Valor baixo pede cautela com sintomas de hipoglicemia e estrategia de refeicoes.";
+  }
+
+  return "Marcador fora da faixa pode impactar desempenho, recuperacao e risco metabolico no dia a dia.";
+}
+
 function toApiDateFilter(value, mode = "from") {
   if (!value) return "";
   const raw = String(value).trim();
@@ -376,7 +427,41 @@ function renderMetricCards() {
   const latestBio =
     state.cache.bioimpedance[0] ||
     (!hasActiveDateFilter() ? state.cache.dashboard?.overview?.latest_bioimpedance || null : null);
-  document.getElementById("metric-bio-fat").textContent = latestBio ? `${fmtNumber(latestBio.body_fat_pct)}%` : "-";
+  const clinicalInsights = overview?.clinical?.insights || [];
+  const bioFatInsight = clinicalInsights.find((item) => item.id === "bio_fat") || null;
+
+  const bioFatNode = document.getElementById("metric-bio-fat");
+  const bioFatSubNode = document.getElementById("metric-bio-fat-sub");
+  const bioFatIdealNode = document.getElementById("metric-bio-fat-ideal");
+  const bioFatCardNode = document.getElementById("metric-card-bio-fat");
+
+  if (bioFatNode) {
+    bioFatNode.textContent = latestBio ? `${fmtNumber(latestBio.body_fat_pct)}%` : "-";
+  }
+
+  if (bioFatSubNode) {
+    bioFatSubNode.textContent = bioFatInsight
+      ? `${clinicalLabel(bioFatInsight)} (${bioFatInsight.score}%)`
+      : "ultimo registro";
+  }
+
+  if (bioFatIdealNode) {
+    bioFatIdealNode.textContent = bioFatInsight ? `ideal: ${bioFatInsight.ideal}` : "ideal: sem referencia";
+  }
+
+  if (bioFatCardNode) {
+    bioFatCardNode.classList.remove(
+      "metric-risk-emergencia",
+      "metric-risk-ruim",
+      "metric-risk-ainda-da-para-melhorar",
+      "metric-risk-bom",
+      "metric-risk-otimo"
+    );
+    if (bioFatInsight) {
+      bioFatCardNode.classList.add(`metric-risk-${slugifyLevel(clinicalLabel(bioFatInsight))}`);
+    }
+  }
+
   document.getElementById("metric-bio-muscle").textContent = latestBio ? `${fmtNumber(latestBio.muscle_mass_kg)} kg` : "-";
   document.getElementById("metric-bio-water").textContent = latestBio ? `${fmtNumber(latestBio.body_water_pct)}%` : "-";
   document.getElementById("metric-bio-visceral").textContent = latestBio ? fmtNumber(latestBio.visceral_fat_level) : "-";
@@ -568,6 +653,45 @@ function renderDailyComparison() {
       }
     </article>
   `;
+}
+
+function renderClinicalOverview() {
+  const overallNode = document.getElementById("clinical-overall-banner");
+  const cardsNode = document.getElementById("clinical-overview-cards");
+  if (!overallNode || !cardsNode) return;
+
+  const clinical = state.cache.dashboard?.overview?.clinical || null;
+  if (!clinical || !Array.isArray(clinical.insights) || !clinical.insights.length) {
+    overallNode.innerHTML = `<p class="muted">Sem dados suficientes para gerar a visao clinica.</p>`;
+    cardsNode.innerHTML = emptyState("Envie exames e bioimpedancia para montar o painel completo.");
+    return;
+  }
+
+  const overallLabel = clinical.overall_label || clinicalLabel({ level: clinical.overall_level });
+  const highlights = Array.isArray(clinical.highlights) ? clinical.highlights : [];
+
+  overallNode.innerHTML = `
+    <h4>Placar geral: ${escapeHtml(overallLabel)} (${fmtNumber(clinical.overall_score, 0)}%)</h4>
+    <p class="muted">Atualizado em ${fmtDateTime(clinical.generated_at)}</p>
+    <p>${highlights.length ? escapeHtml(highlights.join(" | ")) : "Sem alertas prioritarios no momento."}</p>
+  `;
+
+  cardsNode.innerHTML = clinical.insights.map((item) => {
+    const label = clinicalLabel(item);
+    const levelClass = slugifyLevel(label);
+    return `
+      <article class="clinical-card">
+        <header>
+          <h4>${escapeHtml(item.title || "Saude")}</h4>
+          <span class="level-badge level-${levelClass}">${escapeHtml(label)}</span>
+        </header>
+        <p><strong>Atual:</strong> ${escapeHtml(item.current || "sem dado")}</p>
+        <p><strong>Ideal:</strong> ${escapeHtml(item.ideal || "na faixa de referencia")}</p>
+        <p class="muted">${escapeHtml(item.reason || "")}</p>
+        <p class="impact-line">${escapeHtml(item.impact || "")}</p>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderWorkoutInsights() {
@@ -812,6 +936,9 @@ function renderExamPanel() {
     { title: "TGO / AST", aliases: ["tgo", "ast"] },
     { title: "TGP / ALT", aliases: ["tgp", "alt"] },
     { title: "GGT", aliases: ["ggt", "gama gt", "gama glutamil"] },
+    { title: "LDL", aliases: ["ldl"] },
+    { title: "Glicose jejum", aliases: ["glicose de jejum", "glicemia de jejum", "glicose jejum"] },
+    { title: "HbA1c", aliases: ["hemoglobina glicada", "hba1c"] },
   ];
 
   kpiContainer.innerHTML = kpiDefs.map((item) => {
@@ -859,6 +986,7 @@ function renderExamPanel() {
       const direction = String(payload?.flag || "").toLowerCase() === "high" ? "alto" : "baixo";
       const value = payload?.value ?? "n/d";
       const unit = payload?.unit ? ` ${payload.unit}` : "";
+      const impact = markerImpactText(name, direction);
       return `
         <article class="history-item">
           <header>
@@ -867,6 +995,7 @@ function renderExamPanel() {
           </header>
           <p>Valor: <strong>${escapeHtml(String(value))}${escapeHtml(unit)}</strong> (${direction})</p>
           <p class="muted">${escapeHtml(payload?.reference_range || "Faixa de referência não informada")}</p>
+          <p class="impact-line"><strong>Impacto:</strong> ${escapeHtml(impact)}</p>
         </article>
       `;
     }).join("");
@@ -1126,6 +1255,7 @@ async function loadAllData() {
   state.cache.nutrition = nutrition.nutrition || [];
 
   renderMetricCards();
+  renderClinicalOverview();
   renderDailyComparison();
   renderWorkoutInsights();
   renderReports();
@@ -1277,6 +1407,46 @@ function setupForms() {
 
     form.reset();
     await refreshAllWithStatus("Alimentação analisada e registrada.");
+  });
+
+  const nutritionImageForm = document.getElementById("nutrition-image-form");
+  nutritionImageForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+      const userId = await ensureUser();
+      setStatus("Enviando foto para analise nutricional...", "info");
+
+      const formData = new FormData(nutritionImageForm);
+      formData.set("user_id", userId);
+      const result = await apiFormData("/api/nutrition/analyze-image", formData);
+      writeOutput("nutrition-image-result", formatNutritionResult(result));
+      nutritionImageForm.reset();
+      await refreshAllWithStatus("Foto analisada e refeicao registrada.");
+    } catch (err) {
+      writeOutput("nutrition-image-result", `Erro: ${err.message}`);
+      setStatus(`Erro na foto da alimentacao: ${err.message}`, "error");
+    }
+  });
+
+  const nutritionAudioForm = document.getElementById("nutrition-audio-form");
+  nutritionAudioForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+      const userId = await ensureUser();
+      setStatus("Enviando audio para analise nutricional...", "info");
+
+      const formData = new FormData(nutritionAudioForm);
+      formData.set("user_id", userId);
+      const result = await apiFormData("/api/nutrition/analyze-audio", formData);
+      writeOutput("nutrition-audio-result", formatNutritionResult(result));
+      nutritionAudioForm.reset();
+      await refreshAllWithStatus("Audio analisado e refeicao registrada.");
+    } catch (err) {
+      writeOutput("nutrition-audio-result", `Erro: ${err.message}`);
+      setStatus(`Erro no audio da alimentacao: ${err.message}`, "error");
+    }
   });
 
   bindForm("hydration-form", async (payload, form) => {

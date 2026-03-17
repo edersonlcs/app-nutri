@@ -1,4 +1,5 @@
 const { supabase } = require("../integrations/supabaseClient");
+const { buildClinicalOverview } = require("./clinicalInsightService");
 
 function startOfTodayUtcISOString() {
   const now = new Date();
@@ -7,7 +8,7 @@ function startOfTodayUtcISOString() {
 }
 
 async function getUserContext(userId) {
-  const [goalRes, profileRes, measurementRes, hydrationRes] = await Promise.all([
+  const [goalRes, profileRes, measurementRes, bioRes, examListRes, hydrationRes] = await Promise.all([
     supabase
       .from("user_goals")
       .select("goal_type,target_weight_kg,target_date,priority,status")
@@ -29,6 +30,20 @@ async function getUserContext(userId) {
       .limit(1)
       .maybeSingle(),
     supabase
+      .from("bioimpedance_records")
+      .select("body_fat_pct,muscle_mass_kg,body_water_pct,visceral_fat_level,recorded_at")
+      .eq("user_id", userId)
+      .order("recorded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("medical_exams")
+      .select("id,exam_name,exam_type,exam_date,markers,created_at")
+      .eq("user_id", userId)
+      .order("exam_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
       .from("hydration_logs")
       .select("amount_ml, recorded_at")
       .eq("user_id", userId)
@@ -37,11 +52,36 @@ async function getUserContext(userId) {
   ]);
 
   const hydrationTodayMl = (hydrationRes.data || []).reduce((acc, item) => acc + (item.amount_ml || 0), 0);
+  const latestBio = bioRes.data || null;
+  const recentExams = examListRes.data || [];
+  const latestExam = recentExams[0] || null;
+  const latestExamWithMarkers =
+    recentExams.find((exam) => exam?.markers && Object.keys(exam.markers).length > 0) || latestExam;
+  const clinical = buildClinicalOverview({
+    profile: profileRes.data || null,
+    latestBio,
+    latestExam: latestExamWithMarkers,
+  });
 
   return {
     activeGoal: goalRes.data || null,
     profile: profileRes.data || null,
     latestMeasurement: measurementRes.data || null,
+    latestBioimpedance: latestBio,
+    latestExam: latestExam
+      ? {
+          exam_name: latestExam.exam_name,
+          exam_type: latestExam.exam_type,
+          exam_date: latestExam.exam_date || latestExam.created_at,
+        }
+      : null,
+    clinicalOverview: {
+      overall_level: clinical.overall_level,
+      overall_label: clinical.overall_label,
+      overall_score: clinical.overall_score,
+      highlights: clinical.highlights,
+      insights: clinical.insights,
+    },
     hydrationTodayMl,
   };
 }

@@ -24,9 +24,10 @@ const { saveAiInteraction } = require("../services/nutritionEntryService");
 function buildTelegramMainKeyboard() {
   return {
     keyboard: [
-      [{ text: "Resumo de hoje" }, { text: "Abrir painel" }],
+      [{ text: "Resumo de hoje" }, { text: "Status do corpo" }],
       [{ text: "Falar com IA" }, { text: "Bebi 300 ml de água" }],
-      [{ text: "/resumo" }, { text: "/exames" }, { text: "/help" }],
+      [{ text: "/resumo" }, { text: "/corpo" }, { text: "/exames" }],
+      [{ text: "/painel" }, { text: "/help" }],
       [{ text: "/chat Vou comer pizza hoje, como compenso?" }],
     ],
     resize_keyboard: true,
@@ -201,6 +202,10 @@ function detectShortcutIntent(rawText) {
     return "exams";
   }
 
+  if (["/corpo", "status do corpo", "status corpo", "visao do corpo", "visao corpo"].includes(normalized)) {
+    return "body_status";
+  }
+
   if (["falar com ia", "conversar com ia", "modo chat", "chat"].includes(normalized)) {
     return "chat_help";
   }
@@ -246,6 +251,37 @@ function formatMarkerSummaryLine(markers, label, aliases) {
   const status = flag === "high" ? " (alto)" : flag === "low" ? " (baixo)" : "";
 
   return `- ${label}: ${value}${unit}${status}`;
+}
+
+function markerImpactText(markerName, direction) {
+  const name = normalizeMarkerName(markerName);
+  const isHigh = direction === "alto";
+
+  if (name.includes("creatinina") || name.includes("ureia") || name.includes("acido urico")) {
+    return isHigh
+      ? "Risco de sobrecarga renal e pior filtragem."
+      : "Pode indicar alteracao de metabolismo/proteina.";
+  }
+
+  if (name.includes("tgp") || name.includes("alt") || name.includes("tgo") || name.includes("ast") || name.includes("ggt")) {
+    return isHigh
+      ? "Sinal de estresse no figado."
+      : "Alteracao hepatica leve, precisa contexto completo.";
+  }
+
+  if (name.includes("ldl") || name.includes("colesterol") || name.includes("triglicer")) {
+    return isHigh
+      ? "Risco cardiovascular aumentado."
+      : "Precisa leitura junto com HDL e triglicerides.";
+  }
+
+  if (name.includes("glicose") || name.includes("glicemia") || name.includes("hba1c") || name.includes("hemoglobina glicada")) {
+    return isHigh
+      ? "Risco metabolico/diabetes maior."
+      : "Pode indicar oscilacao glicemica.";
+  }
+
+  return "Pode impactar saude metabolica e recuperacao.";
 }
 
 function extractExamAlerts(markers, max = 3) {
@@ -298,6 +334,28 @@ function buildQualitySummary(entries) {
   }
 
   return `ótimo ${counters.otimo} | bom ${counters.bom} | moderado ${counters["ainda pode, mas pouco"]} | ruim ${counters.ruim} | nunca ${counters["nunca coma"]}`;
+}
+
+function clinicalLevelTag(level) {
+  const normalized = String(level || "").toLowerCase();
+  if (normalized === "emergencia") return "EMERGENCIA";
+  if (normalized === "ruim") return "RUIM";
+  if (normalized === "ainda da para melhorar") return "MELHORAR";
+  if (normalized === "bom") return "BOM";
+  if (normalized === "otimo") return "OTIMO";
+  return "SEM DADO";
+}
+
+function buildClinicalLines(clinical, limit = 5) {
+  const insights = clinical?.insights || [];
+  if (!insights.length) {
+    return ["Sem analise clinica suficiente ainda."];
+  }
+
+  return insights.slice(0, limit).map((item) => {
+    const current = item?.current || "sem dado";
+    return `- ${item.title}: ${clinicalLevelTag(item.label)} (${current})`;
+  });
 }
 
 function shouldUseChatMode(messageText) {
@@ -358,6 +416,7 @@ async function buildTelegramDailySummary(userId) {
   const latestExam = exams[0] || null;
   const examAlerts = extractExamAlerts(latestExam?.markers, 4);
   const actionHints = overview?.latest_reports?.[0]?.summary?.action_hints || [];
+  const clinical = overview?.clinical || null;
 
   const lines = [
     `EdeVida - Resumo diário (${formatDateBr(today)})`,
@@ -391,6 +450,15 @@ async function buildTelegramDailySummary(userId) {
     }
   }
 
+  if (clinical?.insights?.length) {
+    lines.push(
+      "",
+      `Corpo (visao geral): ${clinicalLevelTag(clinical.overall_label)} (${clinical.overall_score}%)`,
+      ...buildClinicalLines(clinical, 4),
+      "Use /corpo para ver status completo."
+    );
+  }
+
   if (!nutrition.length && !hydration.length && !workouts.length) {
     const [lastNutrition, lastHydration, lastWorkouts] = await Promise.all([
       listNutritionEntries(userId, { limit: 1 }),
@@ -417,6 +485,39 @@ async function buildTelegramDailySummary(userId) {
 
   lines.push("", `Painel web: ${cfg.appBaseUrl}/painel`);
 
+  return lines.join("\n");
+}
+
+async function buildTelegramBodyStatus(userId) {
+  const overview = await getDashboardOverview(userId);
+  const clinical = overview?.clinical || null;
+
+  if (!clinical?.insights?.length) {
+    return [
+      "Status do corpo",
+      "",
+      "Ainda faltam dados para analise completa.",
+      "Envie bioimpedancia/exames e use /resumo novamente.",
+      `Painel web: ${cfg.appBaseUrl}/painel`,
+    ].join("\n");
+  }
+
+  const lines = [
+    "Status do corpo (IA)",
+    "",
+    `Geral: ${clinicalLevelTag(clinical.overall_label)} (${clinical.overall_score}%)`,
+    ...buildClinicalLines(clinical, 5),
+  ];
+
+  if (Array.isArray(clinical.highlights) && clinical.highlights.length) {
+    lines.push("", "Prioridades agora:");
+    for (const item of clinical.highlights.slice(0, 2)) {
+      lines.push(`- ${item}`);
+    }
+  }
+
+  lines.push("", "Detalhes dos marcadores: /exames");
+  lines.push(`Painel web: ${cfg.appBaseUrl}/painel`);
   return lines.join("\n");
 }
 
@@ -454,6 +555,13 @@ async function buildTelegramExamsSummary(userId) {
     for (const alert of alerts) {
       lines.push(`- ${alert}`);
     }
+
+    lines.push("", "Impacto rapido:");
+    for (const alert of alerts.slice(0, 3)) {
+      const [namePart, rest = ""] = alert.split(":");
+      const direction = rest.includes("(alto)") ? "alto" : rest.includes("(baixo)") ? "baixo" : "";
+      lines.push(`- ${namePart.trim()}: ${markerImpactText(namePart, direction)}`);
+    }
   }
 
   lines.push("", `Total de exames cadastrados: ${exams.length}`);
@@ -476,10 +584,11 @@ function getTelegramHelpText() {
     "/start ou /help - mostra este guia",
     "/painel - abre o painel web",
     "/resumo - mostra resumo completo de hoje",
+    "/corpo - mostra visao geral do corpo (5 niveis)",
     "/exames - mostra acompanhamento dos exames",
     "/chat <pergunta> - conversa sem registrar refeicao",
     "",
-    "Atalhos de teclado: Resumo de hoje, Abrir painel e Falar com IA.",
+    "Atalhos de teclado: Resumo de hoje, Status do corpo e Falar com IA.",
     "",
     "Dica: mensagens com '?' entram em modo conversa (sem registro).",
   ].join("\n");
@@ -559,6 +668,18 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
         const aiError = normalizeOpenAiError(err);
         await safeReply(message.chat.id, aiError.userMessage, message.message_id);
         return res.json({ ok: true, handled: "resumo", analyzed: false, reason: aiError.code });
+      }
+    }
+
+    if (shortcutIntent === "body_status") {
+      try {
+        const bodyStatus = await buildTelegramBodyStatus(appUser.id);
+        await safeReply(message.chat.id, bodyStatus, message.message_id);
+        return res.json({ ok: true, handled: "corpo" });
+      } catch (err) {
+        const aiError = normalizeOpenAiError(err);
+        await safeReply(message.chat.id, aiError.userMessage, message.message_id);
+        return res.json({ ok: true, handled: "corpo", analyzed: false, reason: aiError.code });
       }
     }
 

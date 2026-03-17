@@ -197,6 +197,118 @@ body {
   font-size: 0.86rem;
 }
 
+.metric-risk-emergencia {
+  border-color: rgba(166, 27, 27, 0.46);
+  background: linear-gradient(180deg, rgba(255, 230, 230, 0.86), rgba(255, 255, 255, 0.84));
+}
+
+.metric-risk-ruim {
+  border-color: rgba(183, 64, 37, 0.42);
+  background: linear-gradient(180deg, rgba(255, 236, 230, 0.84), rgba(255, 255, 255, 0.84));
+}
+
+.metric-risk-ainda-da-para-melhorar {
+  border-color: rgba(184, 133, 29, 0.4);
+  background: linear-gradient(180deg, rgba(255, 247, 224, 0.82), rgba(255, 255, 255, 0.84));
+}
+
+.metric-risk-bom {
+  border-color: rgba(65, 134, 54, 0.36);
+  background: linear-gradient(180deg, rgba(240, 251, 234, 0.82), rgba(255, 255, 255, 0.84));
+}
+
+.metric-risk-otimo {
+  border-color: rgba(40, 132, 115, 0.36);
+  background: linear-gradient(180deg, rgba(229, 249, 245, 0.82), rgba(255, 255, 255, 0.84));
+}
+
+.clinical-overall {
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.clinical-overall h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.clinical-overall p {
+  margin: 0;
+}
+
+.clinical-grid {
+  margin-top: 0.72rem;
+  display: grid;
+  gap: 0.72rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.clinical-card {
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.74rem;
+  display: grid;
+  gap: 0.36rem;
+}
+
+.clinical-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.clinical-card h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.clinical-card p {
+  margin: 0;
+}
+
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.18rem 0.52rem;
+  letter-spacing: 0.01em;
+}
+
+.level-emergencia {
+  background: rgba(166, 27, 27, 0.22);
+  color: #7a1515;
+}
+
+.level-ruim {
+  background: rgba(211, 95, 47, 0.21);
+  color: #7d3518;
+}
+
+.level-ainda-da-para-melhorar {
+  background: rgba(222, 167, 39, 0.24);
+  color: #7a5d17;
+}
+
+.level-bom {
+  background: rgba(71, 164, 95, 0.2);
+  color: #2d6f3e;
+}
+
+.level-otimo {
+  background: rgba(47, 143, 131, 0.2);
+  color: #0f5d54;
+}
+
 .charts-grid {
   display: grid;
   gap: 0.8rem;
@@ -304,6 +416,11 @@ body {
 
 .history-item p {
   margin: 0;
+}
+
+.impact-line {
+  border-left: 3px solid rgba(19, 39, 43, 0.2);
+  padding-left: 0.5rem;
 }
 
 .history-item pre {
@@ -418,7 +535,7 @@ body {
 .exam-kpi-grid {
   display: grid;
   gap: 0.7rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .exam-kpi-card {
@@ -558,6 +675,10 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
+  .clinical-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .charts-grid {
     grid-template-columns: 1fr;
   }
@@ -592,6 +713,10 @@ textarea {
   }
 
   .exam-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clinical-grid {
     grid-template-columns: 1fr;
   }
 

@@ -212,6 +212,17 @@ Melhorias aplicadas apos uso real no web/telegram:
   - deteccao de mensagem com `?` para modo conversa;
 - Telegram com atalhos no teclado (sem precisar digitar tudo): `Resumo de hoje`, `Abrir painel`, `Falar com IA`;
 - `/resumo` com fallback inteligente: se o dia estiver sem lancamentos, mostra os ultimos registros para evitar resposta "zerada" sem contexto;
+- Telegram com foco de uso diario:
+  - novo comando `/corpo` (visao geral do corpo em 5 niveis),
+  - resumo clinico integrado no `/resumo`,
+  - `/exames` com impacto rapido dos marcadores alterados;
+- dashboard principal com visao de corpo inteiro (IA) em 5 niveis:
+  - `Emergencia`, `Ruim`, `Ainda da para melhorar`, `Bom`, `Otimo`,
+  - cartoes de sistemas (gordura corporal, figado, rins, colesterol/triglicerides, glicose/diabetes),
+  - bio gordura com `Atual x Ideal` e coloracao por risco;
+- aba de exames com impacto pratico por marcador alterado;
+- web com registro alimentar por `foto` e `audio` (alem de texto), com analise e gravacao;
+- chat da IA mais conversacional e contextualizado com historico clinico (menos resposta engessada);
 - protecao para nao registrar hidratacao automatica fora de faixa por mensagem (anti-hallucination).
 
 ---
