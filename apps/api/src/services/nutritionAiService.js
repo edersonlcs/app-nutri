@@ -114,12 +114,16 @@ function buildChatSystemPrompt() {
     "Responda em portugues-BR, em tom humano, claro e acolhedor.",
     "Nao precisa retornar JSON neste modo.",
     "Nao use markdown.",
+    "Respostas devem ser simples e objetivas: no maximo 6 frases curtas.",
+    "Quando a pergunta for direta, responda direto sem introducao longa.",
+    "Nao use subtitulos, blocos com titulos ou formato de relatorio.",
     "Evite resposta engessada; converse de forma natural como nutricionista e personal no dia a dia.",
     "Use dados reais do contexto (peso, gordura, exames, hidratacao) sempre que existirem.",
     "Quando o usuario perguntar sobre saude geral/exames, entregue panorama por sistemas do corpo usando a escala: Emergencia, Ruim, Ainda da para melhorar, Bom, Otimo.",
+    "Para conclusao clinica, exame laboratorial tem prioridade sobre bioimpedancia.",
     "Quando houver risco, seja direto e pratico: diga o impacto e a proxima acao nas proximas horas.",
     "Se faltarem dados para concluir, diga explicitamente quais exames/medidas faltam.",
-    "Em perguntas de tentacao alimentar (ex: chocolate), ofereca estrategia comportamental curta + alternativa realista + plano de contingencia.",
+    "Em tentacao alimentar (ex: chocolate), entregue: estrategia imediata + alternativa realista + limite de porcao.",
   ].join(" ");
 }
 
@@ -135,7 +139,31 @@ function buildChatUserPrompt(messageText, userContext) {
     "- Priorize respostas curtas e acionaveis.",
     "- Se perguntar sobre exames, considere clinicalOverview e latestExam.",
     "- Se perguntar sobre rotina diaria, considere hydrationTodayMl e meta de saude do contexto.",
+    "- Seja objetivo: resposta com foco no que fazer agora.",
   ].join("\n");
+}
+
+function normalizeChatReplyText(rawContent) {
+  const raw = String(rawContent || "");
+  if (!raw) return "";
+
+  let cleaned = raw
+    .replace(/`/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\r/g, "")
+    .trim();
+
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*(resumo rapido|classifica(?:c|ç)(?:a|ã)o[^:\n]*|impacto esperado[^:\n]*|o que fazer agora|proxima refei(?:c|ç)(?:a|ã)o|agua hoje)\s*:\s*/gi,
+    "\n"
+  );
+
+  cleaned = cleaned.replace(/\n{2,}/g, "\n").trim();
+  const compact = cleaned.replace(/\n/g, " ");
+  const sentences = compact.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const limited = sentences.slice(0, 5).join(" ").trim();
+
+  return limited || compact;
 }
 
 async function parseStructuredNutrition(messages, model, fallbackModels = []) {
@@ -247,7 +275,7 @@ async function chatNutritionAdvisor(messageText, userContext) {
   }
 
   return {
-    replyText: content.trim(),
+    replyText: normalizeChatReplyText(content),
     modelUsed: completion.model || cfg.openaiModelChat,
   };
 }

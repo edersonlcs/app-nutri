@@ -34,6 +34,8 @@ const MEAL_SLOTS = [
   { key: "outro", label: "Outro" },
 ];
 
+const MEAL_SLOTS_CORE = MEAL_SLOTS.filter((item) => item.key !== "outro");
+
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function escapeHtml(value) {
@@ -506,6 +508,33 @@ function extractFoodItems(entry) {
   return [];
 }
 
+function isLikelyClinicalText(value) {
+  const normalized = normalizeMarkerName(value || "");
+  if (!normalized) return false;
+  return [
+    "exame",
+    "creatinina",
+    "ureia",
+    "colesterol",
+    "hemoglobina glicada",
+    "hba1c",
+    "glicose",
+    "glicemia",
+    "nefro",
+    "cardio",
+  ].some((term) => normalized.includes(term));
+}
+
+function mealTextPreview(entry) {
+  const base = String(entry?.raw_input_text || entry?.analyzed_summary || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!base) return "Refeição registrada";
+  if (base.length <= 130) return base;
+  return `${base.slice(0, 127)}...`;
+}
+
 function mealSlotLabel(slot) {
   return MEAL_SLOTS.find((item) => item.key === slot)?.label || "Outro";
 }
@@ -687,8 +716,6 @@ function renderClinicalOverview() {
         </header>
         <p><strong>Atual:</strong> ${escapeHtml(item.current || "sem dado")}</p>
         <p><strong>Ideal:</strong> ${escapeHtml(item.ideal || "na faixa de referencia")}</p>
-        <p class="muted">${escapeHtml(item.reason || "")}</p>
-        <p class="impact-line">${escapeHtml(item.impact || "")}</p>
       </article>
     `;
   }).join("");
@@ -757,7 +784,7 @@ function renderNutritionDashboard() {
   document.getElementById("nutrition-workouts-total").textContent = String(workoutSessions.length || 0);
   document.getElementById("nutrition-workouts-minutes").textContent = `${fmtNumber(workoutMinutes, 0)} min`;
 
-  mealsContainer.innerHTML = MEAL_SLOTS.map((slot) => {
+  mealsContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
     const entries = grouped[slot.key] || [];
     const latest = entries[0];
     const latestQuality = latest?.meal_quality || "sem registro";
@@ -772,39 +799,40 @@ function renderNutritionDashboard() {
     `;
   }).join("");
 
-  if (!nutritionEntries.length) {
+  const mealEntries = nutritionEntries.filter((entry) => {
+    const slot = resolveMealSlot(entry);
+    const isMealSlot = MEAL_SLOTS_CORE.some((item) => item.key === slot);
+    if (!isMealSlot) return false;
+    return !isLikelyClinicalText(entry.raw_input_text || entry.analyzed_summary);
+  });
+
+  if (!mealEntries.length) {
     detailsContainer.innerHTML = emptyState("Sem registros alimentares no período filtrado.");
     return;
   }
 
-  detailsContainer.innerHTML = nutritionEntries.map((entry) => {
+  const groupedBySlot = Object.fromEntries(MEAL_SLOTS_CORE.map((slot) => [slot.key, []]));
+  for (const entry of mealEntries) {
     const slot = resolveMealSlot(entry);
-    const foodItems = extractFoodItems(entry);
+    if (!groupedBySlot[slot]) continue;
+    groupedBySlot[slot].push(entry);
+  }
+
+  detailsContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
+    const entries = groupedBySlot[slot.key] || [];
+    const lines = entries.slice(0, 6).map((entry) => `
+      <li>
+        <strong>${fmtDateTime(entry.recorded_at)}</strong> - ${escapeHtml(mealTextPreview(entry))}
+      </li>
+    `).join("");
 
     return `
       <article class="history-item">
         <header>
-          <strong>${mealSlotLabel(slot)} • ${fmtDateTime(entry.recorded_at)}</strong>
-          <span class="tag ${qualityClass(entry.meal_quality)}">${escapeHtml(entry.meal_quality || "-")}</span>
+          <strong>${slot.label}</strong>
+          <span class="tag quality-default">${entries.length} registro(s)</span>
         </header>
-
-        <p>${escapeHtml(entry.analyzed_summary || entry.raw_input_text || "Sem resumo")}</p>
-        <p class="muted">Calorias: ${fmtNumber(entry.estimated_calories, 0)} | Proteína: ${fmtNumber(entry.estimated_protein_g)}g | Carbo: ${fmtNumber(entry.estimated_carbs_g)}g</p>
-
-        <details>
-          <summary>Mais informações</summary>
-          <div class="nutrition-food-list">
-            ${foodItems.length
-              ? foodItems.map((item) => `
-                <div class="nutrition-food-item">
-                  <strong>${escapeHtml(item.food_name)} = ${escapeHtml(item.quality)}</strong>
-                  <span class="muted">Porção: ${escapeHtml(item.portion)}</span>
-                  <span>${escapeHtml(item.reason)}</span>
-                </div>
-              `).join("")
-              : `<p class="muted">Sem itens detalhados para esta refeição.</p>`}
-          </div>
-        </details>
+        ${entries.length ? `<ul class="meal-simple-list">${lines}</ul>` : `<p class="muted">Sem registro neste período.</p>`}
       </article>
     `;
   }).join("");

@@ -220,6 +220,11 @@ Melhorias aplicadas apos uso real no web/telegram:
   - `Emergencia`, `Ruim`, `Ainda da para melhorar`, `Bom`, `Otimo`,
   - cartoes de sistemas (gordura corporal, figado, rins, colesterol/triglicerides, glicose/diabetes),
   - bio gordura com `Atual x Ideal` e coloracao por risco;
+- refinamento de UX (pedido de limpeza visual):
+  - dashboard clinico mais limpo (cards compactos, sem excesso de texto),
+  - aba nutricao detalhada restrita a refeicoes por periodo (`cafe da manha`, `lanche da manha`, `almoco`, `lanche da tarde`, `janta`, `ceia`);
+- chat da IA mais objetivo (respostas curtas e diretas, sem formato de relatorio);
+- upload de exame com modelo mais forte e prompt especialista (enfoque nefro + cardio), com exame tendo prioridade clinica sobre bioimpedancia;
 - aba de exames com impacto pratico por marcador alterado;
 - web com registro alimentar por `foto` e `audio` (alem de texto), com analise e gravacao;
 - chat da IA mais conversacional e contextualizado com historico clinico (menos resposta engessada);

@@ -532,6 +532,18 @@ body {
   gap: 0.18rem;
 }
 
+.meal-simple-list {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: 0.36rem;
+}
+
+.meal-simple-list li {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
 .exam-kpi-grid {
   display: grid;
   gap: 0.7rem;

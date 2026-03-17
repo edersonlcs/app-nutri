@@ -16,6 +16,8 @@ const cfg = {
   openaiModelText: process.env.OPENAI_MODEL_TEXT || "gpt-4.1-mini",
   openaiModelChat: process.env.OPENAI_MODEL_CHAT || "gpt-4o-mini",
   openaiModelVision: process.env.OPENAI_MODEL_VISION || "gpt-4.1-mini",
+  openaiModelExamText: process.env.OPENAI_MODEL_EXAM_TEXT || "gpt-4.1",
+  openaiModelExamVision: process.env.OPENAI_MODEL_EXAM_VISION || "gpt-4.1",
   openaiModelTranscribe: process.env.OPENAI_MODEL_TRANSCRIBE || "gpt-4o-mini-transcribe",
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || "",

@@ -96,11 +96,24 @@ const medicalExamSchema = {
   },
 };
 
-function buildSystemPrompt() {
+function buildAttachmentSystemPrompt() {
   return [
     "Voce extrai dados de saude em formato estruturado.",
     "Nao invente numeros. Se nao estiver legivel, retorne null no campo numerico.",
     "Padronize numeros com ponto decimal.",
+    "Siga a persona e limites clinicos abaixo:",
+    getPersonaDocument(),
+  ].join(" ");
+}
+
+function buildMedicalExamSpecialistPrompt() {
+  return [
+    "Voce e um assistente clinico para extracao de exames laboratoriais.",
+    "Atue com rigor de triagem de nefrologista e cardiologista.",
+    "Priorize marcadores renais, cardiovasculares e metabolicos quando disponiveis.",
+    "Nao invente dados. Campo ilegivel deve ficar null.",
+    "Padronize valores e flags com consistencia.",
+    "Ao preencher flags, use high/low quando estiver fora da referencia e normal quando dentro.",
     "Siga a persona e limites clinicos abaixo:",
     getPersonaDocument(),
   ].join(" ");
@@ -142,7 +155,7 @@ function asDataUrl(buffer, mimeType) {
 async function analyzeBioimpedanceImage({ imageBuffer, mimeType }) {
   return parseJsonWithSchema(
     [
-      { role: "system", content: buildSystemPrompt() },
+      { role: "system", content: buildAttachmentSystemPrompt() },
       {
         role: "user",
         content: [
@@ -175,7 +188,7 @@ async function extractPdfText(absolutePath) {
 async function analyzeMedicalExamText({ rawText }) {
   return parseJsonWithSchema(
     [
-      { role: "system", content: buildSystemPrompt() },
+      { role: "system", content: buildMedicalExamSpecialistPrompt() },
       {
         role: "user",
         content: [
@@ -187,15 +200,15 @@ async function analyzeMedicalExamText({ rawText }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelText,
-    DEFAULT_TEXT_FALLBACK_MODELS
+    cfg.openaiModelExamText,
+    [cfg.openaiModelText, ...DEFAULT_TEXT_FALLBACK_MODELS]
   );
 }
 
 async function analyzeMedicalExamImage({ imageBuffer, mimeType }) {
   return parseJsonWithSchema(
     [
-      { role: "system", content: buildSystemPrompt() },
+      { role: "system", content: buildMedicalExamSpecialistPrompt() },
       {
         role: "user",
         content: [
@@ -208,8 +221,8 @@ async function analyzeMedicalExamImage({ imageBuffer, mimeType }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelVision,
-    DEFAULT_VISION_FALLBACK_MODELS
+    cfg.openaiModelExamVision,
+    [cfg.openaiModelVision, ...DEFAULT_VISION_FALLBACK_MODELS]
   );
 }
 

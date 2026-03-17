@@ -181,9 +181,16 @@ function buildSystemInsight({ id, title, markers, aliasesByMarker, impactText })
 
   const level = calculateSystemLevel(foundMarkers);
   const info = LEVEL_INFO[level];
-  const markerPreview = foundMarkers.slice(0, 3).map(markerShortText).join(" | ");
-
   const hasAbnormal = foundMarkers.some((item) => item.flag === "high" || item.flag === "low");
+  const abnormalMarkers = foundMarkers.filter((item) => item.flag === "high" || item.flag === "low");
+  const markerPreview = foundMarkers.slice(0, 3).map(markerShortText).join(" | ");
+  const abnormalNames = abnormalMarkers.map((item) => item.name).slice(0, 2).join(", ");
+  const currentText = !foundMarkers.length
+    ? "Sem dados recentes"
+    : hasAbnormal
+      ? `${abnormalMarkers.length} alterado(s)${abnormalNames ? `: ${abnormalNames}` : ""}`
+      : `Dentro da referencia (${foundMarkers.length} marcador(es))`;
+
   let reason = "Sem dados suficientes para analise completa.";
   if (foundMarkers.length) {
     reason = hasAbnormal
@@ -198,7 +205,7 @@ function buildSystemInsight({ id, title, markers, aliasesByMarker, impactText })
     label: info.label,
     score: info.score,
     ideal: "Manter marcadores dentro da faixa de referencia",
-    current: markerPreview || "Sem dados recentes",
+    current: currentText,
     reason,
     impact: impactText,
     has_data: foundMarkers.length > 0,
