@@ -2,4 +2,16 @@
 
 Painel web para visualizacao de historico, metricas e relatorios.
 
-A implementacao inicial fica nesta pasta e sera evoluida nas atividades seguintes.
+A implementacao inicial usa arquivos estaticos em `public/` e eh servida pela API em:
+
+- `/painel` (pagina principal)
+- `/web/*` (assets estaticos)
+
+Fluxos suportados no MVP:
+
+- analise nutricional por texto (OpenAI)
+- registro de agua
+- cadastro de perfil, medidas corporais, bioimpedancia e exames
+- registro de treino
+- geracao de relatorio diario
+- recomendacao inicial de treino (modulo base de personal trainer)

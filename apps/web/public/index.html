@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EdeVida | Painel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <div class="bg-layer"></div>
+    <main class="layout">
+      <header class="hero card">
+        <p class="eyebrow">Painel pessoal</p>
+        <h1>EdeVida</h1>
+        <p class="subtitle">
+          Acompanhamento de nutrição, água, medidas, exames, bioimpedância e treino em um único lugar.
+        </p>
+        <div class="hero-actions">
+          <button id="refresh-dashboard" class="btn-primary">Atualizar dados</button>
+          <button id="generate-daily-report" class="btn-secondary">Gerar relatório diário</button>
+        </div>
+      </header>
+
+      <section class="metrics">
+        <article class="metric card">
+          <h2>Água hoje</h2>
+          <p id="metric-water" class="metric-value">-</p>
+          <p class="metric-sub">meta 3000 ml</p>
+        </article>
+        <article class="metric card">
+          <h2>Refeições hoje</h2>
+          <p id="metric-meals" class="metric-value">-</p>
+          <p id="metric-last-quality" class="metric-sub">sem registro</p>
+        </article>
+        <article class="metric card">
+          <h2>Treinos na semana</h2>
+          <p id="metric-workouts" class="metric-value">-</p>
+          <p id="metric-workout-minutes" class="metric-sub">0 min</p>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h3>Analisar alimentação (texto)</h3>
+          <form id="nutrition-form" class="stack">
+            <textarea
+              name="text"
+              rows="4"
+              placeholder="Ex.: Café da manhã: 2 ovos, 1 banana, 300 ml de água"
+              required
+            ></textarea>
+            <button class="btn-primary" type="submit">Analisar e registrar</button>
+          </form>
+          <pre id="nutrition-result" class="output"></pre>
+        </article>
+
+        <article class="card">
+          <h3>Registrar água</h3>
+          <form id="hydration-form" class="stack">
+            <input name="amount_ml" type="number" min="50" step="50" placeholder="Quantidade em ml" required />
+            <input name="notes" type="text" placeholder="Observação (opcional)" />
+            <button class="btn-primary" type="submit">Salvar hidratação</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Perfil base</h3>
+          <form id="profile-form" class="stack">
+            <input name="height_cm" type="number" step="0.1" placeholder="Altura (cm)" />
+            <input name="baseline_weight_kg" type="number" step="0.1" placeholder="Peso base (kg)" />
+            <select name="biological_sex">
+              <option value="">Sexo biológico</option>
+              <option value="male">Masculino</option>
+              <option value="female">Feminino</option>
+              <option value="other">Outro</option>
+              <option value="prefer_not_to_say">Prefiro não informar</option>
+            </select>
+            <textarea name="routine_notes" rows="2" placeholder="Rotina e observações"></textarea>
+            <button class="btn-primary" type="submit">Salvar perfil</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Medidas corporais</h3>
+          <form id="measurement-form" class="stack two-cols">
+            <input name="weight_kg" type="number" step="0.1" placeholder="Peso (kg)" required />
+            <input name="body_fat_pct" type="number" step="0.1" placeholder="Gordura (%)" />
+            <input name="waist_cm" type="number" step="0.1" placeholder="Cintura (cm)" />
+            <input name="abdomen_cm" type="number" step="0.1" placeholder="Abdômen (cm)" />
+            <input name="hip_cm" type="number" step="0.1" placeholder="Quadril (cm)" />
+            <input name="thigh_cm" type="number" step="0.1" placeholder="Coxa (cm)" />
+            <button class="btn-primary full" type="submit">Salvar medidas</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Bioimpedância</h3>
+          <form id="bioimpedance-form" class="stack two-cols">
+            <input name="body_fat_pct" type="number" step="0.1" placeholder="Gordura (%)" />
+            <input name="muscle_mass_kg" type="number" step="0.1" placeholder="Massa muscular (kg)" />
+            <input name="body_water_pct" type="number" step="0.1" placeholder="Água corporal (%)" />
+            <input name="visceral_fat_level" type="number" step="0.1" placeholder="Gordura visceral" />
+            <input name="bmr_kcal" type="number" step="1" placeholder="BMR (kcal)" />
+            <input name="metabolic_age" type="number" step="1" placeholder="Idade metabólica" />
+            <button class="btn-primary full" type="submit">Salvar bioimpedância</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Exame médico</h3>
+          <form id="exam-form" class="stack">
+            <input name="exam_name" type="text" placeholder="Nome do exame" required />
+            <input name="exam_type" type="text" placeholder="Tipo (checkup, hemograma...)" />
+            <input name="exam_date" type="date" />
+            <textarea
+              name="markers"
+              rows="3"
+              placeholder='Marcadores em JSON. Ex.: {"glicemia":92,"hdl":56}'
+            ></textarea>
+            <button class="btn-primary" type="submit">Salvar exame</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Treino realizado</h3>
+          <form id="workout-form" class="stack two-cols">
+            <input name="activity_type" type="text" placeholder="Atividade (musculação, corrida...)" required />
+            <input name="duration_minutes" type="number" step="1" placeholder="Duração (min)" />
+            <select name="intensity">
+              <option value="">Intensidade</option>
+              <option value="low">Leve</option>
+              <option value="moderate">Moderada</option>
+              <option value="high">Alta</option>
+            </select>
+            <input name="calories_burned_est" type="number" step="1" placeholder="Calorias estimadas" />
+            <button class="btn-primary full" type="submit">Salvar treino</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3>Recomendação de treino</h3>
+          <button id="load-workout-recommendation" class="btn-secondary">Gerar recomendação</button>
+          <pre id="workout-recommendation" class="output"></pre>
+        </article>
+
+        <article class="card full-width">
+          <h3>Últimos relatórios</h3>
+          <pre id="reports-output" class="output"></pre>
+        </article>
+      </section>
+
+      <footer class="card footer">
+        <p>
+          Tudo neste painel usa os mesmos endpoints da API em produção. Para Telegram, continue enviando texto/foto/áudio no bot.
+        </p>
+      </footer>
+    </main>
+
+    <script src="/web/app.js" type="module"></script>
+  </body>
+</html>
