@@ -1,5 +1,4 @@
 const { asyncHandler } = require("../utils/asyncHandler");
-const fs = require("fs/promises");
 const { resolveUserId, listUsers, createDefaultUserIfNeeded } = require("../services/userService");
 const { processTextMessage } = require("../services/telegramMessageProcessor");
 const { saveAiInteraction } = require("../services/nutritionEntryService");
@@ -20,7 +19,7 @@ const {
   listWorkoutSessions,
   listNutritionEntries,
 } = require("../services/trackingDataService");
-const { saveUploadedFile } = require("../services/attachmentStorageService");
+const { saveUploadedFile, localToWebFileUrl } = require("../services/attachmentStorageService");
 const { generateAndStoreReport, listReports } = require("../services/reportService");
 const { getDashboardOverview } = require("../services/dashboardService");
 const { getWorkoutRecommendation } = require("../services/workoutPlannerService");
@@ -38,6 +37,26 @@ function toLimit(value, fallback = 30, max = 200) {
   const parsed = Number(value);
   if (Number.isNaN(parsed) || parsed <= 0) return fallback;
   return Math.min(parsed, max);
+}
+
+function normalizeStoredFileUrl(fileUrl) {
+  if (!fileUrl) return null;
+  return localToWebFileUrl(fileUrl);
+}
+
+function normalizeRecordedAt(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(raw)) {
+    return `${raw.replace(" ", "T")}:00-03:00`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return `${raw}T12:00:00-03:00`;
+  }
+
+  return raw;
 }
 
 async function resolveRequestUserId(req) {
@@ -120,9 +139,44 @@ const medicalExamCreateController = asyncHandler(async (req, res) => {
     return res.status(400).json({ ok: false, error: "exam_name obrigatorio" });
   }
 
-  const exam = await createMedicalExam({ userId, ...req.body });
+  const exam = await createMedicalExam({
+    userId,
+    ...req.body,
+    exam_date: normalizeRecordedAt(req.body.exam_date),
+    file_url: normalizeStoredFileUrl(req.body.file_url),
+  });
+
   return res.status(201).json({ ok: true, exam });
 });
+
+function normalizeOpenAiError(err) {
+  const message = String(err?.message || "").toLowerCase();
+  if (message.includes("quota") || message.includes("insufficient_quota")) {
+    return "OPENAI_QUOTA";
+  }
+  if (message.includes("rate limit")) {
+    return "OPENAI_RATE_LIMIT";
+  }
+  return "OPENAI_UNAVAILABLE";
+}
+
+function normalizeOpenAiErrorDetail(err) {
+  const reason = normalizeOpenAiError(err);
+
+  const userMessageMap = {
+    OPENAI_QUOTA:
+      "OpenAI sem credito/quota no momento. O arquivo foi recebido, mas a analise IA nao foi concluida.",
+    OPENAI_RATE_LIMIT:
+      "OpenAI com limite temporario. O arquivo foi recebido e pode ser reprocessado em seguida.",
+    OPENAI_UNAVAILABLE:
+      "OpenAI indisponivel no momento. O arquivo foi recebido, mas sem analise automatica.",
+  };
+
+  return {
+    reason,
+    userMessage: userMessageMap[reason] || userMessageMap.OPENAI_UNAVAILABLE,
+  };
+}
 
 const bioimpedanceUploadController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
@@ -133,7 +187,7 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
   }
 
   const storedFile = await saveUploadedFile(file);
-  const recordedAt = req.body.recorded_at || null;
+  const recordedAt = normalizeRecordedAt(req.body.recorded_at);
 
   if (!isImageMime(storedFile.mimeType, file.originalname)) {
     return res.status(400).json({
@@ -149,7 +203,8 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
     });
 
     const parsed = ai.parsed;
-    const effectiveRecordedAt = recordedAt || parsed.measured_at || new Date().toISOString();
+    const effectiveRecordedAt =
+      recordedAt || normalizeRecordedAt(parsed.measured_at) || new Date().toISOString();
 
     const record = await createBioimpedanceRecord({
       userId,
@@ -162,7 +217,7 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
       lean_mass_kg: parsed.fat_free_mass_kg,
       recorded_at: effectiveRecordedAt,
       notes: [
-        `Fonte arquivo: ${storedFile.localFileUrl}`,
+        `Fonte arquivo: ${storedFile.webFileUrl}`,
         `Resumo IA: ${parsed.source_summary}`,
         `IMC: ${parsed.bmi ?? "n/d"} | WHR: ${parsed.whr ?? "n/d"}`,
         `Tipo corpo: ${parsed.body_type_text || "n/d"} | Nivel obesidade: ${parsed.obesity_level_text || "n/d"}`,
@@ -176,7 +231,7 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
         weight_kg: parsed.weight_kg,
         body_fat_pct: parsed.body_fat_pct,
         recorded_at: effectiveRecordedAt,
-        notes: `Registro automatico via anexo bioimpedancia (${storedFile.localFileUrl})`,
+        notes: `Registro automatico via anexo bioimpedancia (${storedFile.webFileUrl})`,
       });
     }
 
@@ -196,9 +251,13 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
       body_measurement: bodyMeasurement,
       parsed,
       file: {
-        url: storedFile.localFileUrl,
+        url: storedFile.webFileUrl,
+        localUrl: storedFile.localFileUrl,
+        webUrl: storedFile.webFileUrl,
         mimeType: storedFile.mimeType,
         size: storedFile.size,
+        originalSize: storedFile.originalSize,
+        optimized: storedFile.optimized,
       },
     });
   } catch (err) {
@@ -219,9 +278,13 @@ const bioimpedanceUploadController = asyncHandler(async (req, res) => {
       reason: info.reason,
       message: info.userMessage,
       file: {
-        url: storedFile.localFileUrl,
+        url: storedFile.webFileUrl,
+        localUrl: storedFile.localFileUrl,
+        webUrl: storedFile.webFileUrl,
         mimeType: storedFile.mimeType,
         size: storedFile.size,
+        originalSize: storedFile.originalSize,
+        optimized: storedFile.optimized,
       },
     });
   }
@@ -238,7 +301,7 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
   const storedFile = await saveUploadedFile(file);
   const baseExamName = req.body.exam_name || "Exame anexado";
   const baseExamType = req.body.exam_type || "anexo";
-  const baseExamDate = req.body.exam_date || null;
+  const baseExamDate = normalizeRecordedAt(req.body.exam_date);
 
   try {
     let ai = null;
@@ -258,7 +321,7 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
         exam_type: baseExamType,
         exam_date: baseExamDate,
         markers: {},
-        file_url: storedFile.localFileUrl,
+        file_url: storedFile.webFileUrl,
         notes: "Arquivo salvo, formato nao suportado para analise IA automatica.",
       });
 
@@ -277,9 +340,9 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
       userId,
       exam_name: parsed.exam_name || baseExamName,
       exam_type: parsed.exam_type || baseExamType,
-      exam_date: parsed.exam_date || baseExamDate,
+      exam_date: normalizeRecordedAt(parsed.exam_date) || baseExamDate,
       markers: markersObj,
-      file_url: storedFile.localFileUrl,
+      file_url: storedFile.webFileUrl,
       notes: [parsed.summary, ...(parsed.risk_flags || []).map((item) => `Risco: ${item}`)].join(" | "),
     });
 
@@ -298,9 +361,13 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
       exam,
       parsed,
       file: {
-        url: storedFile.localFileUrl,
+        url: storedFile.webFileUrl,
+        localUrl: storedFile.localFileUrl,
+        webUrl: storedFile.webFileUrl,
         mimeType: storedFile.mimeType,
         size: storedFile.size,
+        originalSize: storedFile.originalSize,
+        optimized: storedFile.optimized,
       },
     });
   } catch (err) {
@@ -312,7 +379,7 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
       exam_type: baseExamType,
       exam_date: baseExamDate,
       markers: {},
-      file_url: storedFile.localFileUrl,
+      file_url: storedFile.webFileUrl,
       notes: `Arquivo salvo sem analise IA. Motivo: ${err.message}`,
     });
 
@@ -332,15 +399,19 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
       message: info.userMessage,
       exam: fallbackExam,
     });
-  } finally {
-    await fs.access(storedFile.absolutePath).catch(() => {});
   }
 });
 
 const medicalExamListController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
   const exams = await listMedicalExams(userId, toLimit(req.query.limit, 30, 120));
-  return res.json({ ok: true, exams });
+
+  const normalized = exams.map((exam) => ({
+    ...exam,
+    file_url: normalizeStoredFileUrl(exam.file_url),
+  }));
+
+  return res.json({ ok: true, exams: normalized });
 });
 
 const hydrationCreateController = asyncHandler(async (req, res) => {
@@ -388,35 +459,6 @@ const nutritionListController = asyncHandler(async (req, res) => {
   const nutrition = await listNutritionEntries(userId, toLimit(req.query.limit, 50, 300));
   return res.json({ ok: true, nutrition });
 });
-
-function normalizeOpenAiError(err) {
-  const message = String(err?.message || "").toLowerCase();
-  if (message.includes("quota") || message.includes("insufficient_quota")) {
-    return "OPENAI_QUOTA";
-  }
-  if (message.includes("rate limit")) {
-    return "OPENAI_RATE_LIMIT";
-  }
-  return "OPENAI_UNAVAILABLE";
-}
-
-function normalizeOpenAiErrorDetail(err) {
-  const reason = normalizeOpenAiError(err);
-
-  const userMessageMap = {
-    OPENAI_QUOTA:
-      "OpenAI sem credito/quota no momento. O arquivo foi recebido, mas a analise IA nao foi concluida.",
-    OPENAI_RATE_LIMIT:
-      "OpenAI com limite temporario. O arquivo foi recebido e pode ser reprocessado em seguida.",
-    OPENAI_UNAVAILABLE:
-      "OpenAI indisponivel no momento. O arquivo foi recebido, mas sem analise automatica.",
-  };
-
-  return {
-    reason,
-    userMessage: userMessageMap[reason] || userMessageMap.OPENAI_UNAVAILABLE,
-  };
-}
 
 const nutritionTextAnalyzeController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);

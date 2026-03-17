@@ -4,6 +4,12 @@ const { openai } = require("../integrations/openaiClient");
 const { cfg } = require("../config/env");
 const { FOOD_QUALITY_SCALE } = require("../config/constants");
 const { getPersonaDocument } = require("./personaService");
+const {
+  DEFAULT_TEXT_FALLBACK_MODELS,
+  DEFAULT_VISION_FALLBACK_MODELS,
+  DEFAULT_TRANSCRIBE_FALLBACK_MODELS,
+  runWithModelFallback,
+} = require("./openaiModelFallbackService");
 
 const responseSchema = {
   name: "nutrition_analysis",
@@ -66,14 +72,20 @@ function buildUserPrompt(messageText, userContext) {
   ].join("\n");
 }
 
-async function parseStructuredNutrition(messages, model) {
-  const completion = await openai.chat.completions.create({
-    model,
-    messages,
-    response_format: {
-      type: "json_schema",
-      json_schema: responseSchema,
-    },
+async function parseStructuredNutrition(messages, model, fallbackModels = []) {
+  const completion = await runWithModelFallback({
+    primaryModel: model,
+    fallbackModels,
+    context: "nutrition_structured",
+    runner: async (currentModel) =>
+      openai.chat.completions.create({
+        model: currentModel,
+        messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: responseSchema,
+        },
+      }),
   });
 
   const content = completion.choices?.[0]?.message?.content;
@@ -94,7 +106,8 @@ async function analyzeTextNutrition(messageText, userContext) {
       { role: "system", content: buildSystemPrompt() },
       { role: "user", content: buildUserPrompt(messageText, userContext) },
     ],
-    cfg.openaiModelText
+    cfg.openaiModelText,
+    DEFAULT_TEXT_FALLBACK_MODELS
   );
 }
 
@@ -118,15 +131,22 @@ async function analyzeImageNutrition({ imageBuffer, mimeType, caption, userConte
         ],
       },
     ],
-    cfg.openaiModelVision
+    cfg.openaiModelVision,
+    DEFAULT_VISION_FALLBACK_MODELS
   );
 }
 
 async function transcribeAudioFile({ filePath }) {
   const absolutePath = path.resolve(filePath);
-  const transcription = await openai.audio.transcriptions.create({
-    model: cfg.openaiModelTranscribe,
-    file: fs.createReadStream(absolutePath),
+  const transcription = await runWithModelFallback({
+    primaryModel: cfg.openaiModelTranscribe,
+    fallbackModels: DEFAULT_TRANSCRIBE_FALLBACK_MODELS,
+    context: "nutrition_transcribe",
+    runner: async (currentModel) =>
+      openai.audio.transcriptions.create({
+        model: currentModel,
+        file: fs.createReadStream(absolutePath),
+      }),
   });
 
   const transcriptText = transcription.text || "";

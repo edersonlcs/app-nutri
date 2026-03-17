@@ -288,8 +288,8 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 
 OPENAI_API_KEY=
-OPENAI_MODEL_TEXT=gpt-5-mini
-OPENAI_MODEL_VISION=gpt-5-mini
+OPENAI_MODEL_TEXT=gpt-4.1-mini
+OPENAI_MODEL_VISION=gpt-4.1-mini
 OPENAI_MODEL_TRANSCRIBE=gpt-4o-mini-transcribe
 
 SUPABASE_URL=
@@ -301,7 +301,8 @@ APP_TIMEZONE=America/Sao_Paulo
 
 Observacoes:
 - Os nomes dos modelos podem ser ajustados depois por custo/qualidade.
-- Padrao sugerido para custo/beneficio atual: `gpt-5-mini` (texto e visao) + `gpt-4o-mini-transcribe` (audio).
+- Padrao sugerido para custo/beneficio atual: `gpt-4.1-mini` (texto e visao) + `gpt-4o-mini-transcribe` (audio).
+- O backend ja possui fallback automatico de modelo para reduzir travas quando um modelo nao estiver liberado na sua conta.
 - A `SUPABASE_SERVICE_ROLE_KEY` fica apenas no backend.
 
 ---
@@ -317,6 +318,23 @@ Antes de codar, vamos confirmar que o app tera espaco para os dados que voce que
 5. Dados de treino e limitacoes fisicas.
 6. Controle de agua (meta diaria e registro em ml).
 7. Classificacao da qualidade da alimentacao em 5 niveis.
+
+---
+
+## Atualizacoes tecnicas realizadas em 17/03/2026
+
+- Painel web reformulado com abas: Dashboard, Registros, Anexos e Historico.
+- Adicionados graficos de evolucao: peso, gordura corporal e hidratacao diaria.
+- Historico exibido em listas visuais para: medidas, bioimpedancia, exames, hidratacao, treinos e alimentacao.
+- Botao de relatorio diario agora atualiza lista visivel no painel (sem ficar "invisivel").
+- Upload de anexos com compressao automatica de imagem no backend para economizar espaco.
+- Arquivos anexados ficam salvos em `temp/uploads` e expostos em URL web via `/uploads/...`.
+- Links de anexo de exames aparecem no historico para abrir direto no navegador.
+- Tratamento melhor de erro de upload grande (retorno claro para limite de 25 MB).
+- Fallback automatico de modelos OpenAI implementado:
+  - texto/visao: tenta modelo configurado e, se indisponivel, cai para `gpt-4.1-mini` e `gpt-4o-mini`;
+  - transcricao: fallback para `gpt-4o-mini-transcribe` e `gpt-4o-transcribe`.
+- Recomendacao de seguranca aplicada no Git: `temp/` ignorado por padrao para evitar commit de arquivos pessoais.
 
 Se quiser incluir algo extra (ex: pressao arterial, frequencia cardiaca de repouso), entrara neste passo.
 

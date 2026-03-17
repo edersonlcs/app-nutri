@@ -47,8 +47,10 @@ curl http://127.0.0.1:3000/painel
 - Registro automatico de hidratacao quando detectado na analise
 - API para perfil, metas, medidas corporais, bioimpedancia, exames, hidratacao e treinos
 - Relatorios diarios/semanais/mensais com resumo agregado
-- Painel web inicial em `/painel`
+- Painel web com abas, historicos e graficos em `/painel`
 - Recomendacao inicial de treino (base para modulo personal trainer)
+- Upload de anexos (bioimpedancia e exames) com compressao automatica de imagem
+- Fallback automatico de modelos OpenAI quando um modelo nao estiver liberado na conta
 
 ## Endpoints principais
 
@@ -66,6 +68,23 @@ curl http://127.0.0.1:3000/painel
 - `POST /api/workouts`
 - `POST /api/reports/generate`
 - `GET /api/dashboard/overview`
+
+## Uso Rapido (Telegram + Web)
+
+1. Web:
+   - Abra `https://SEU_DOMINIO/painel`
+   - Registre perfil, medidas, hidracao e treinos
+   - Use a aba `Anexos` para enviar bioimpedancia e exames (PDF/imagem)
+
+2. Telegram:
+   - Envie texto de refeicao, foto do prato ou audio
+   - Comandos disponiveis:
+     - `/start` ou `/help`
+     - `/painel`
+
+3. Anexos salvos:
+   - Caminho local: `temp/uploads/`
+   - URL web: `/uploads/<arquivo>`
 
 ## Deploy
 

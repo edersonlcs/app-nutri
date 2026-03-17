@@ -7,11 +7,13 @@ const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 function createApp() {
   const app = express();
   const webPublicPath = path.resolve(__dirname, "../../web/public");
+  const uploadsPath = path.resolve(__dirname, "../../../temp/uploads");
 
   app.use(morgan("combined"));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
   app.use("/web", express.static(webPublicPath));
+  app.use("/uploads", express.static(uploadsPath));
 
   app.get("/", (_req, res) => {
     res.json({

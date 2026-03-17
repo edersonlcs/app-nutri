@@ -52,6 +52,22 @@ function normalizeOpenAiError(err) {
   };
 }
 
+function getTelegramHelpText() {
+  return [
+    "EdeVida ativo. Como usar:",
+    "",
+    "1) Texto: descreva refeicao/bebida",
+    "Ex.: Almoco: arroz, feijao, frango e 400 ml de agua.",
+    "",
+    "2) Foto: envie foto do prato",
+    "3) Audio: envie audio descrevendo o que comeu",
+    "",
+    "Comandos:",
+    "/start ou /help - mostra este guia",
+    "/painel - abre o painel web",
+  ].join("\n");
+}
+
 const telegramWebhookController = asyncHandler(async (req, res) => {
   const secretHeader = req.headers["x-telegram-bot-api-secret-token"];
 
@@ -91,6 +107,23 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
     hasPhoto: Array.isArray(message.photo) && message.photo.length > 0,
     hasAudio: Boolean(message.voice || message.audio),
   });
+
+  if (message.text) {
+    const normalizedText = String(message.text || "").trim().toLowerCase();
+    if (normalizedText === "/start" || normalizedText === "/help") {
+      await safeReply(message.chat.id, getTelegramHelpText(), message.message_id);
+      return res.json({ ok: true, handled: "help" });
+    }
+
+    if (normalizedText === "/painel") {
+      await safeReply(
+        message.chat.id,
+        `Painel web: ${cfg.appBaseUrl}/painel`,
+        message.message_id
+      );
+      return res.json({ ok: true, handled: "painel" });
+    }
+  }
 
   if (message.text || (Array.isArray(message.photo) && message.photo.length > 0) || message.voice || message.audio) {
     try {

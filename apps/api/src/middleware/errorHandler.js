@@ -8,18 +8,30 @@ function notFoundHandler(req, res) {
 }
 
 function errorHandler(err, req, res, _next) {
-  const statusCode = err.statusCode || 500;
+  let statusCode = err.statusCode || 500;
+  let code = err.code || "INTERNAL_ERROR";
+  let message = err.message || "Erro interno";
+
+  if (err?.name === "MulterError") {
+    statusCode = 400;
+    code = err.code || "UPLOAD_ERROR";
+
+    if (err.code === "LIMIT_FILE_SIZE") {
+      statusCode = 413;
+      message = "Arquivo acima do limite permitido (max 25 MB).";
+    }
+  }
 
   logError("request_failed", {
     method: req.method,
     url: req.originalUrl,
     statusCode,
-    error: err.message,
+    error: message,
   });
 
   res.status(statusCode).json({
-    error: err.code || "INTERNAL_ERROR",
-    message: err.message || "Erro interno",
+    error: code,
+    message,
   });
 }
 

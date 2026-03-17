@@ -5,6 +5,11 @@ const { promisify } = require("util");
 const { openai } = require("../integrations/openaiClient");
 const { cfg } = require("../config/env");
 const { getPersonaDocument } = require("./personaService");
+const {
+  DEFAULT_TEXT_FALLBACK_MODELS,
+  DEFAULT_VISION_FALLBACK_MODELS,
+  runWithModelFallback,
+} = require("./openaiModelFallbackService");
 
 const execFileAsync = promisify(execFile);
 
@@ -101,14 +106,20 @@ function buildSystemPrompt() {
   ].join(" ");
 }
 
-async function parseJsonWithSchema(messages, schema, model) {
-  const completion = await openai.chat.completions.create({
-    model,
-    messages,
-    response_format: {
-      type: "json_schema",
-      json_schema: schema,
-    },
+async function parseJsonWithSchema(messages, schema, model, fallbackModels = []) {
+  const completion = await runWithModelFallback({
+    primaryModel: model,
+    fallbackModels,
+    context: `health_attachment:${schema.name}`,
+    runner: async (currentModel) =>
+      openai.chat.completions.create({
+        model: currentModel,
+        messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: schema,
+        },
+      }),
   });
 
   const content = completion.choices?.[0]?.message?.content;
@@ -148,7 +159,8 @@ async function analyzeBioimpedanceImage({ imageBuffer, mimeType }) {
       },
     ],
     bioimpedanceSchema,
-    cfg.openaiModelVision
+    cfg.openaiModelVision,
+    DEFAULT_VISION_FALLBACK_MODELS
   );
 }
 
@@ -175,7 +187,8 @@ async function analyzeMedicalExamText({ rawText }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelText
+    cfg.openaiModelText,
+    DEFAULT_TEXT_FALLBACK_MODELS
   );
 }
 
@@ -195,7 +208,8 @@ async function analyzeMedicalExamImage({ imageBuffer, mimeType }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelVision
+    cfg.openaiModelVision,
+    DEFAULT_VISION_FALLBACK_MODELS
   );
 }
 
