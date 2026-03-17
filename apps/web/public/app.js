@@ -319,6 +319,16 @@ function sortAscByDate(items, key) {
   return [...(items || [])].sort((a, b) => new Date(a[key]).getTime() - new Date(b[key]).getTime());
 }
 
+function baseChartOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    resizeDelay: 120,
+    animation: false,
+    plugins: { legend: { display: false } },
+  };
+}
+
 function renderWeightChart() {
   const points = sortAscByDate(state.cache.measurements, "recorded_at")
     .filter((item) => item.weight_kg !== null && item.weight_kg !== undefined)
@@ -340,9 +350,7 @@ function renderWeightChart() {
       ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...baseChartOptions(),
     },
   });
 }
@@ -374,9 +382,7 @@ function renderFatChart() {
       ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...baseChartOptions(),
     },
   });
 }
@@ -426,9 +432,7 @@ function renderHydrationChart() {
       ],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...baseChartOptions(),
     },
   });
 }

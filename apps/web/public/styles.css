@@ -173,8 +173,11 @@ body {
 }
 
 .chart-card {
-  min-height: 290px;
+  height: 300px;
+  min-height: 300px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-card h3 {
@@ -183,6 +186,8 @@ body {
 
 .chart-card canvas {
   display: block;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100% !important;
   height: 220px !important;
   max-height: 220px;
