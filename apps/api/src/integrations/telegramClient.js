@@ -48,10 +48,28 @@ function getFileDownloadUrl(filePath) {
   return `${TELEGRAM_FILE_BASE}/${filePath}`;
 }
 
+async function downloadFileBuffer(fileId) {
+  const fileMeta = await getFile(fileId);
+  const downloadUrl = getFileDownloadUrl(fileMeta.file_path);
+  const res = await fetch(downloadUrl);
+
+  if (!res.ok) {
+    throw new Error(`Falha ao baixar arquivo do Telegram: HTTP ${res.status}`);
+  }
+
+  const arrayBuffer = await res.arrayBuffer();
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    filePath: fileMeta.file_path,
+    contentType: res.headers.get("content-type") || "application/octet-stream",
+  };
+}
+
 module.exports = {
   sendMessage,
   getWebhookInfo,
   setWebhook,
   getFile,
   getFileDownloadUrl,
+  downloadFileBuffer,
 };
