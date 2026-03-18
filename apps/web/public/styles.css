@@ -430,6 +430,26 @@ body {
   color: #6d1414;
 }
 
+.metric-value.calorie-ok {
+  color: #2d6f3e;
+}
+
+.metric-value.calorie-over {
+  color: #8d1f1f;
+}
+
+.calorie-line {
+  margin: 0;
+}
+
+.calorie-line.calorie-ok strong {
+  color: #2d6f3e;
+}
+
+.calorie-line.calorie-over strong {
+  color: #8d1f1f;
+}
+
 .history-item {
   border: 1px solid rgba(19, 39, 43, 0.14);
   border-radius: 12px;
@@ -530,6 +550,31 @@ body {
   display: grid;
   gap: 0.7rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.macro-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.macro-card {
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.macro-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.macro-card p {
+  margin: 0;
 }
 
 .meal-card {
@@ -831,6 +876,10 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
+  .macro-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .exam-kpi-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -869,6 +918,10 @@ textarea {
   }
 
   .meal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .macro-grid {
     grid-template-columns: 1fr;
   }
 

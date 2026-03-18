@@ -46,6 +46,8 @@ const {
   isPdfMime,
   isImageMime,
 } = require("../services/healthAttachmentAiService");
+const { cfg } = require("../config/env");
+const { getPersonaDocument } = require("../services/personaService");
 
 function toLimit(value, fallback = 30, max = 200) {
   const parsed = Number(value);
@@ -1039,6 +1041,43 @@ const workoutRecommendationController = asyncHandler(async (req, res) => {
   });
 });
 
+const aiInfoController = asyncHandler(async (req, res) => {
+  const persona = getPersonaDocument();
+  const personaLines = String(persona || "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+
+  return res.json({
+    ok: true,
+    ai: {
+      models: {
+        text: cfg.openaiModelText,
+        chat: cfg.openaiModelChat,
+        vision: cfg.openaiModelVision,
+        exam_text: cfg.openaiModelExamText,
+        exam_vision: cfg.openaiModelExamVision,
+        transcribe: cfg.openaiModelTranscribe,
+      },
+      persona: {
+        source_file: "doc-ia/persona-ia-edevida.md",
+        preview: personaLines.slice(0, 25).join("\n"),
+        full_prompt: persona,
+      },
+      capabilities: [
+        "Analise nutricional por texto/foto/audio",
+        "Classificacao de qualidade da refeicao",
+        "Resumo diario (agua, refeicoes, treino, calorias e exames)",
+        "Visao clinica integrada (bioimpedancia + exames)",
+        "Rascunho com correcao antes de registrar",
+      ],
+      notes: [
+        "Exames laboratoriais tem prioridade sobre bioimpedancia na leitura clinica.",
+        "Resposta de chat busca ser curta, objetiva e contextualizada com seu historico.",
+      ],
+    },
+  });
+});
+
 module.exports = {
   usersListController,
   userProfileUpsertController,
@@ -1065,6 +1104,7 @@ module.exports = {
   nutritionRegisterDraftController,
   nutritionReviseDraftController,
   nutritionChatController,
+  aiInfoController,
   reportGenerateController,
   reportListController,
   dashboardOverviewController,

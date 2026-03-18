@@ -26,6 +26,7 @@ const {
   nutritionRegisterDraftController,
   nutritionReviseDraftController,
   nutritionChatController,
+  aiInfoController,
   reportGenerateController,
   reportListController,
   dashboardOverviewController,
@@ -72,6 +73,7 @@ router.post("/api/nutrition/analyze-audio", upload.single("file"), nutritionAudi
 router.post("/api/nutrition/register-draft", nutritionRegisterDraftController);
 router.post("/api/nutrition/revise-draft", nutritionReviseDraftController);
 router.post("/api/nutrition/chat", nutritionChatController);
+router.get("/api/ai/info", aiInfoController);
 
 router.get("/api/reports", reportListController);
 router.post("/api/reports/generate", reportGenerateController);

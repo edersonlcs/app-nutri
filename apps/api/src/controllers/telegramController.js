@@ -664,7 +664,8 @@ function buildMealSlotSummary(entries) {
     .map((slot) => {
       const slotEntries = grouped[slot.key] || [];
       const latestQuality = slotEntries[0]?.meal_quality;
-      return `- ${slot.label}: ${slotEntries.length}${latestQuality ? ` (${latestQuality})` : ""}`;
+      const slotCalories = slotEntries.reduce((acc, entry) => acc + Number(entry.estimated_calories || 0), 0);
+      return `- ${slot.label}: ${slotEntries.length} registro(s), ${Math.round(slotCalories)} kcal${latestQuality ? ` (${latestQuality})` : ""}`;
     })
     .join("\n");
 }
@@ -762,6 +763,12 @@ async function buildTelegramDailySummary(userId) {
   const nutritionCaloriesTotal = nutrition.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
   const nutritionCaloriesGoal = Number(overview?.today?.nutrition_calories_goal_kcal || 2200);
   const nutritionCaloriesRemaining = Math.max(0, nutritionCaloriesGoal - nutritionCaloriesTotal);
+  const totalProtein = nutrition.reduce((acc, item) => acc + Number(item.estimated_protein_g || 0), 0);
+  const totalCarbs = nutrition.reduce((acc, item) => acc + Number(item.estimated_carbs_g || 0), 0);
+  const totalFat = nutrition.reduce((acc, item) => acc + Number(item.estimated_fat_g || 0), 0);
+  const targetProteinG = Math.round((nutritionCaloriesGoal * 0.3) / 4);
+  const targetCarbsG = Math.round((nutritionCaloriesGoal * 0.4) / 4);
+  const targetFatG = Math.round((nutritionCaloriesGoal * 0.3) / 9);
 
   const workoutMinutes = workouts.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
   const workoutCalories = workouts.reduce((acc, item) => acc + Number(item.calories_burned_est || 0), 0);
@@ -776,17 +783,25 @@ async function buildTelegramDailySummary(userId) {
     `EdeVida - Resumo diário (${formatDateBr(today)})`,
     `Baseado no dia atual (${cfg.appTimezone}).`,
     "",
+    "HIDRATACAO",
     `Água: ${hydrationTotal} / ${hydrationGoal} ml (${hydrationPct}%)`,
     `Falta para meta: ${hydrationMissing} ml`,
     "",
+    "CALORIAS E MACROS",
     `Refeições registradas: ${nutrition.length}`,
     `Calorias consumidas: ${Math.round(nutritionCaloriesTotal)} / ${Math.round(nutritionCaloriesGoal)} kcal`,
     `Calorias restantes na meta: ${Math.round(nutritionCaloriesRemaining)} kcal`,
+    `Macros consumidos: P ${Math.round(totalProtein)}g | C ${Math.round(totalCarbs)}g | G ${Math.round(totalFat)}g`,
+    `Macros alvo (dia): P ${targetProteinG}g | C ${targetCarbsG}g | G ${targetFatG}g`,
+    "",
+    "CALORIAS POR GRUPO DE REFEICAO",
     buildMealSlotSummary(nutrition),
     `Qualidade: ${buildQualitySummary(nutrition)}`,
     "",
+    "TREINO",
     `Treinos: ${workouts.length} sessão(ões), ${workoutMinutes} min, ${workoutCalories} kcal estimadas`,
     "",
+    "BIOIMPEDANCIA",
     latestBio
       ? `Bioimpedância (último): gordura ${latestBio.body_fat_pct ?? "-"}% | músculo ${latestBio.muscle_mass_kg ?? "-"} kg | água ${latestBio.body_water_pct ?? "-"}%`
       : "Bioimpedância: sem registro recente.",

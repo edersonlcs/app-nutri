@@ -235,6 +235,18 @@ Melhorias aplicadas apos uso real no web/telegram:
 - rascunho com correcao inteligente (web + telegram):
   - permite corrigir frase tipo `nao era agua, era suco de limao`,
   - revisa o rascunho inteiro e substitui informacao conflitante (em vez de apenas somar).
+- aba `Nutricao` com foco calorico e macros:
+  - calorias no periodo (`consumido / meta diaria`),
+  - calorias por grupo de refeicao (cafe, almoco, janta, etc.),
+  - macros consumidos x alvo diario (`proteina`, `carboidrato`, `gordura`).
+- dashboard alimentar com leitura de meta mais clara:
+  - total de calorias do periodo com status visual (`verde` dentro da meta, `vermelho` acima),
+  - calorias por grupo de refeicao em formato `consumido / meta do periodo` com mesma regra de cor.
+- card `Exercicios no periodo` com gasto energetico estimado (`kcal`) para facilitar leitura de balanco diario.
+- aba `IA` no painel:
+  - capacidades da IA,
+  - modelos em uso,
+  - preview e prompt completo da persona ativa.
 - chat da IA mais conversacional e contextualizado com historico clinico (menos resposta engessada);
 - protecao para nao registrar hidratacao automatica fora de faixa por mensagem (anti-hallucination).
 

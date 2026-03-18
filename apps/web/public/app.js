@@ -13,6 +13,7 @@ const state = {
   cache: {
     dashboard: null,
     profile: null,
+    aiInfo: null,
     reports: [],
     measurements: [],
     bioimpedance: [],
@@ -38,6 +39,14 @@ const MEAL_SLOTS = [
 ];
 
 const MEAL_SLOTS_CORE = MEAL_SLOTS.filter((item) => item.key !== "outro");
+const MEAL_CALORIE_RATIO = {
+  cafe_da_manha: 0.2,
+  lanche_da_manha: 0.1,
+  almoco: 0.3,
+  lanche_da_tarde: 0.1,
+  janta: 0.25,
+  ceia: 0.05,
+};
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -64,6 +73,40 @@ function toNumberOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function estimateWorkoutCalories(workout) {
+  const direct = toNumberOrNull(workout?.calories_burned_est);
+  if (direct !== null && direct > 0) return direct;
+
+  const minutes = Math.max(0, Number(workout?.duration_minutes || 0));
+  if (!minutes) return 0;
+
+  const intensity = String(workout?.intensity || "").toLowerCase();
+  const activity = String(workout?.activity_type || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  let kcalPerMin = intensity === "high" ? 9 : intensity === "low" ? 5 : 7;
+  if (activity.includes("caminhada")) kcalPerMin -= 1;
+  if (activity.includes("corrida")) kcalPerMin += 2;
+  if (activity.includes("bike") || activity.includes("cicl")) kcalPerMin += 1;
+  if (activity.includes("muscul")) kcalPerMin += 1;
+  if (activity.includes("hiit") || activity.includes("funcional")) kcalPerMin += 2;
+
+  kcalPerMin = Math.max(3.5, kcalPerMin);
+  return Math.round(minutes * kcalPerMin);
+}
+
+function estimateMacroTargetsByCalories(caloriesGoal) {
+  const goal = Math.max(1200, Number(caloriesGoal || 2200));
+  return {
+    calories: goal,
+    protein_g: Math.round((goal * 0.3) / 4),
+    carbs_g: Math.round((goal * 0.4) / 4),
+    fat_g: Math.round((goal * 0.3) / 9),
+  };
 }
 
 function parseDateForDisplay(value) {
@@ -234,6 +277,19 @@ function toComparableTimestamp(value, mode = "from") {
   const parsed = parseDateForFilterBound(value, mode);
   if (!parsed) return null;
   return parsed.getTime();
+}
+
+function activeFilterDayCount() {
+  const from = parseDateForFilterBound(state.filter.from, "from");
+  const to = parseDateForFilterBound(state.filter.to, "to");
+  if (!from || !to) return 1;
+
+  const fromDate = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const toDate = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  const diffMs = toDate.getTime() - fromDate.getTime();
+  if (diffMs < 0) return 1;
+
+  return Math.max(1, Math.round(diffMs / 86400000) + 1);
 }
 
 function hasActiveDateFilter() {
@@ -764,6 +820,12 @@ function signalClassByRatio(ratio, goodThreshold = 1, attentionThreshold = 0.7) 
   return "signal-alert";
 }
 
+function calorieStatusClass(consumed, target) {
+  const safeTarget = Math.max(0, Number(target || 0));
+  const safeConsumed = Math.max(0, Number(consumed || 0));
+  return safeTarget > 0 && safeConsumed > safeTarget ? "calorie-over" : "calorie-ok";
+}
+
 const NUTRITION_QUALITY_ORDER = ["nunca coma", "ruim", "ainda pode, mas pouco", "bom", "otimo"];
 
 function normalizeNutritionQuality(value) {
@@ -1109,7 +1171,7 @@ function renderWorkoutInsights() {
   }
 
   const totalMinutes = workouts.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
-  const totalCalories = workouts.reduce((acc, item) => acc + Number(item.calories_burned_est || 0), 0);
+  const totalCalories = workouts.reduce((acc, item) => acc + estimateWorkoutCalories(item), 0);
   const byType = new Map();
 
   for (const workout of workouts) {
@@ -1146,10 +1208,27 @@ function renderWorkoutInsights() {
 function renderNutritionDashboard() {
   const mealsContainer = document.getElementById("nutrition-slot-cards");
   const detailsContainer = document.getElementById("nutrition-details-list");
-  if (!mealsContainer || !detailsContainer) return;
+  const caloriesTotalNode = document.getElementById("nutrition-calories-total");
+  const caloriesMetaNode = document.getElementById("nutrition-calories-meta");
+  const workoutCaloriesNode = document.getElementById("nutrition-workouts-calories");
+  const caloriesBySlotNode = document.getElementById("nutrition-calories-by-slot");
+  const macrosOverviewNode = document.getElementById("nutrition-macros-overview");
+  if (
+    !mealsContainer ||
+    !detailsContainer ||
+    !caloriesTotalNode ||
+    !caloriesMetaNode ||
+    !workoutCaloriesNode ||
+    !caloriesBySlotNode ||
+    !macrosOverviewNode
+  ) {
+    return;
+  }
 
   const nutritionEntries = state.cache.nutrition || [];
   const grouped = buildMealSlotsData(nutritionEntries);
+  const calorieGoal = Number(state.cache.dashboard?.overview?.today?.nutrition_calories_goal_kcal || 2200);
+  const targets = estimateMacroTargetsByCalories(calorieGoal);
 
   document.getElementById("nutrition-total-entries").textContent = String(nutritionEntries.length || 0);
 
@@ -1158,8 +1237,69 @@ function renderNutritionDashboard() {
 
   const workoutSessions = state.cache.workouts || [];
   const workoutMinutes = workoutSessions.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
+  const workoutCalories = workoutSessions.reduce((acc, item) => acc + estimateWorkoutCalories(item), 0);
   document.getElementById("nutrition-workouts-total").textContent = String(workoutSessions.length || 0);
   document.getElementById("nutrition-workouts-minutes").textContent = `${fmtNumber(workoutMinutes, 0)} min`;
+  workoutCaloriesNode.textContent = `${fmtNumber(workoutCalories, 0)} kcal estimadas`;
+
+  const totalCalories = nutritionEntries.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+  const totalProtein = nutritionEntries.reduce((acc, item) => acc + Number(item.estimated_protein_g || 0), 0);
+  const totalCarbs = nutritionEntries.reduce((acc, item) => acc + Number(item.estimated_carbs_g || 0), 0);
+  const totalFat = nutritionEntries.reduce((acc, item) => acc + Number(item.estimated_fat_g || 0), 0);
+  const periodDays = activeFilterDayCount();
+  const periodCaloriesGoal = Math.round(targets.calories * periodDays);
+
+  caloriesTotalNode.className = `metric-value ${calorieStatusClass(totalCalories, periodCaloriesGoal)}`;
+  caloriesTotalNode.textContent = `${fmtNumber(totalCalories, 0)} / ${fmtNumber(periodCaloriesGoal, 0)} kcal`;
+  caloriesMetaNode.textContent = `meta do período (${periodDays} dia${periodDays > 1 ? "s" : ""}) | ${fmtNumber(targets.calories, 0)} kcal/dia`;
+
+  caloriesBySlotNode.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
+    const entries = grouped[slot.key] || [];
+    const slotCalories = entries.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+    const slotGoal = Math.round(targets.calories * (MEAL_CALORIE_RATIO[slot.key] || 0) * periodDays);
+    const slotStatus = calorieStatusClass(slotCalories, slotGoal);
+    return `
+      <article class="history-item">
+        <header>
+          <strong>${slot.label}</strong>
+          <span class="tag quality-default">${entries.length} registro(s)</span>
+        </header>
+        <p class="calorie-line ${slotStatus}">
+          <strong>${fmtNumber(slotCalories, 0)} / ${fmtNumber(slotGoal, 0)} kcal</strong>
+        </p>
+      </article>
+    `;
+  }).join("");
+
+  macrosOverviewNode.innerHTML = [
+    {
+      title: "Proteína",
+      consumed: totalProtein,
+      target: targets.protein_g,
+    },
+    {
+      title: "Carboidrato",
+      consumed: totalCarbs,
+      target: targets.carbs_g,
+    },
+    {
+      title: "Gordura",
+      consumed: totalFat,
+      target: targets.fat_g,
+    },
+  ]
+    .map((item) => {
+      const ratio = item.target > 0 ? item.consumed / item.target : 0;
+      const signalClass = signalClassByRatio(ratio, 1, 0.75);
+      return `
+        <article class="macro-card">
+          <h4>${item.title}</h4>
+          <p><strong>${fmtNumber(item.consumed, 0)} / ${fmtNumber(item.target, 0)} g</strong></p>
+          <span class="signal ${signalClass}">${fmtNumber(ratio * 100, 0)}%</span>
+        </article>
+      `;
+    })
+    .join("");
 
   mealsContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
     const entries = grouped[slot.key] || [];
@@ -1742,6 +1882,50 @@ function renderTelegramInfo() {
   writeOutput("telegram-webhook-status", simplified);
 }
 
+function renderAiInfo() {
+  const capabilitiesNode = document.getElementById("ai-capabilities-list");
+  const modelsNode = document.getElementById("ai-models-list");
+  const personaSourceNode = document.getElementById("ai-persona-source");
+  const personaPreviewNode = document.getElementById("ai-persona-preview");
+  const personaFullNode = document.getElementById("ai-persona-full");
+
+  if (!capabilitiesNode || !modelsNode || !personaSourceNode || !personaPreviewNode || !personaFullNode) {
+    return;
+  }
+
+  const aiInfo = state.cache.aiInfo?.ai || null;
+  if (!aiInfo) {
+    capabilitiesNode.innerHTML = emptyState("Sem dados da IA no momento.");
+    modelsNode.innerHTML = emptyState("Sem modelos carregados.");
+    personaSourceNode.textContent = "doc-ia/persona-ia-edevida.md";
+    personaPreviewNode.textContent = "Sem preview da persona.";
+    personaFullNode.textContent = "Sem prompt carregado.";
+    return;
+  }
+
+  const capabilities = Array.isArray(aiInfo.capabilities) ? aiInfo.capabilities : [];
+  const notes = Array.isArray(aiInfo.notes) ? aiInfo.notes : [];
+  capabilitiesNode.innerHTML = [...capabilities, ...notes].map((item) => `
+    <article class="history-item">
+      <p>${escapeHtml(item)}</p>
+    </article>
+  `).join("");
+
+  const models = aiInfo.models || {};
+  modelsNode.innerHTML = Object.entries(models).map(([key, value]) => `
+    <article class="history-item">
+      <header>
+        <strong>${escapeHtml(key)}</strong>
+        <span class="tag quality-default">${escapeHtml(String(value || "-"))}</span>
+      </header>
+    </article>
+  `).join("");
+
+  personaSourceNode.textContent = aiInfo.persona?.source_file || "doc-ia/persona-ia-edevida.md";
+  personaPreviewNode.textContent = aiInfo.persona?.preview || "Sem preview.";
+  personaFullNode.textContent = aiInfo.persona?.full_prompt || "Sem prompt completo.";
+}
+
 async function loadAllData() {
   const userId = await ensureUser();
   const filterParams = currentFilterParams();
@@ -1751,9 +1935,10 @@ async function loadAllData() {
     ...filterParams,
   };
 
-  const [dashboard, profile, reports, measurements, bioimpedance, exams, hydration, workouts, nutrition] = await Promise.all([
+  const [dashboard, profile, aiInfo, reports, measurements, bioimpedance, exams, hydration, workouts, nutrition] = await Promise.all([
     apiJson(`/api/dashboard/overview?${queryStringFromObject({ user_id: userId })}`),
     apiJson(`/api/profile?${queryStringFromObject({ user_id: userId })}`),
+    apiJson("/api/ai/info").catch((error) => ({ ok: false, error: error.message })),
     apiJson(`/api/reports?${queryStringFromObject({ user_id: userId, period: "daily", limit: 14 })}`),
     apiJson(`/api/measurements?${queryStringFromObject({ ...common, limit: 200 })}`),
     apiJson(`/api/bioimpedance?${queryStringFromObject({ ...common, limit: 200 })}`),
@@ -1765,6 +1950,7 @@ async function loadAllData() {
 
   state.cache.dashboard = dashboard;
   state.cache.profile = profile.profile || dashboard?.overview?.profile || null;
+  state.cache.aiInfo = aiInfo || null;
   state.cache.reports = reports.reports || [];
   state.cache.measurements = measurements.measurements || [];
   state.cache.bioimpedance = bioimpedance.records || [];
@@ -1783,6 +1969,7 @@ async function loadAllData() {
   renderHistories();
   renderExamPanel();
   renderNutritionDashboard();
+  renderAiInfo();
   renderCharts();
 
   await loadTelegramWebhookInfo();

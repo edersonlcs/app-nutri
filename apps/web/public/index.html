@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/web/styles.css?v=20260317j" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260318c" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -37,6 +37,7 @@
         <button class="tab-button" data-tab="exames">Exames</button>
         <button class="tab-button" data-tab="historico">Histórico</button>
         <button class="tab-button" data-tab="telegram">Telegram</button>
+        <button class="tab-button" data-tab="ia">IA</button>
       </nav>
 
       <section class="card filters-card">
@@ -188,6 +189,7 @@
             <h2>Exercícios no período</h2>
             <p id="nutrition-workouts-total" class="metric-value">-</p>
             <p id="nutrition-workouts-minutes" class="metric-sub">0 min</p>
+            <p id="nutrition-workouts-calories" class="metric-sub">0 kcal estimadas</p>
           </article>
 
           <article class="metric card">
@@ -195,7 +197,23 @@
             <p id="nutrition-total-entries" class="metric-value">-</p>
             <p class="metric-sub">entradas analisadas</p>
           </article>
+
+          <article class="metric card">
+            <h2>Calorias no período</h2>
+            <p id="nutrition-calories-total" class="metric-value">-</p>
+            <p id="nutrition-calories-meta" class="metric-sub">meta diária --</p>
+          </article>
         </section>
+
+        <article class="card">
+          <h3>Calorias por grupo de refeição</h3>
+          <div id="nutrition-calories-by-slot" class="history-list"></div>
+        </article>
+
+        <article class="card">
+          <h3>Macros consumidos x alvo diário</h3>
+          <div id="nutrition-macros-overview" class="macro-grid"></div>
+        </article>
 
         <article class="card">
           <h3>Detalhado de alimentação</h3>
@@ -492,6 +510,28 @@
         </article>
       </section>
 
+      <section id="tab-ia" class="tab-panel">
+        <article class="card">
+          <h3>O que a IA faz</h3>
+          <div id="ai-capabilities-list" class="history-list"></div>
+        </article>
+
+        <article class="card">
+          <h3>Modelos em uso</h3>
+          <div id="ai-models-list" class="history-list"></div>
+        </article>
+
+        <article class="card">
+          <h3>Prompt e persona atual</h3>
+          <p class="muted">Fonte: <span id="ai-persona-source">doc-ia/persona-ia-edevida.md</span></p>
+          <pre id="ai-persona-preview" class="output">Carregando persona...</pre>
+          <details>
+            <summary>Ver prompt completo</summary>
+            <pre id="ai-persona-full" class="output">Carregando...</pre>
+          </details>
+        </article>
+      </section>
+
       <footer class="card footer">
         <p>
           Telegram: envie texto, foto ou áudio para o bot. Comandos: <code>/start</code>, <code>/help</code>, <code>/painel</code>, <code>/resumo</code>, <code>/corpo</code>, <code>/exames</code>, <code>/chat</code>.
@@ -500,6 +540,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="/web/app.js?v=20260318a" type="module"></script>
+    <script src="/web/app.js?v=20260318c" type="module"></script>
   </body>
 </html>
