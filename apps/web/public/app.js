@@ -1973,6 +1973,7 @@ function renderNutritionDashboard() {
       unit: "g",
       digits: 1,
       status: fatGoodStatus,
+      secondary: true,
       lines: [
         `Gordura boa: ${fmtNumber(totalFatGood, 1)} g (meta mínima ${fmtNumber(fatGoodGoalMin, 0)} g)`,
         totalFatGood >= fatGoodGoalMin
@@ -1988,6 +1989,7 @@ function renderNutritionDashboard() {
       unit: "g",
       digits: 1,
       status: fatBadStatus,
+      secondary: true,
       lines: [
         `Gordura ruim: ${fmtNumber(totalFatBad, 1)} g (ideal até ${fmtNumber(fatBadGoalMax, 0)} g)`,
         deltaLine(totalFatBad, fatBadGoalMax, "g", 1),
@@ -2027,8 +2029,9 @@ function renderNutritionDashboard() {
       const status = item.status || targetStatus(item.consumed, item.target, item.statusOptions);
       const digits = Number(item.digits || 0);
       const metricText = `${fmtNumber(item.consumed, digits)} / ${fmtNumber(item.target, digits)} ${item.unit || ""}`.trim();
+      const cardClass = item.secondary ? "macro-card macro-card-secondary" : "macro-card";
       return `
-        <article class="macro-card">
+        <article class="${cardClass}">
           <h4>${item.title}</h4>
           ${
             Array.isArray(item.lines) && item.lines.length

@@ -589,6 +589,17 @@ body {
   margin: 0;
 }
 
+.macro-card-secondary {
+  background: rgba(240, 244, 244, 0.82);
+  border-color: rgba(19, 39, 43, 0.18);
+  border-style: dashed;
+  opacity: 0.92;
+}
+
+.macro-card-secondary h4 {
+  color: #355057;
+}
+
 .meal-card {
   border: 1px solid rgba(19, 39, 43, 0.14);
   border-radius: 12px;
