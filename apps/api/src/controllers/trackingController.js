@@ -11,7 +11,11 @@ const {
   saveNutritionEntry,
 } = require("../services/nutritionEntryService");
 const { getUserContext } = require("../services/userContextService");
-const { chatNutritionAdvisor, formatNutritionReply } = require("../services/nutritionAiService");
+const {
+  chatNutritionAdvisor,
+  formatNutritionReply,
+  reviseNutritionDraft,
+} = require("../services/nutritionAiService");
 const {
   upsertUserProfile,
   getUserProfile,
@@ -905,6 +909,55 @@ const nutritionRegisterDraftController = asyncHandler(async (req, res) => {
   });
 });
 
+const nutritionReviseDraftController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const currentAnalysisInput = req.body?.current_analysis;
+  const correctionText = String(req.body?.correction_text || "").trim();
+
+  if (!currentAnalysisInput || typeof currentAnalysisInput !== "object") {
+    return res.status(400).json({
+      ok: false,
+      error: "current_analysis obrigatorio",
+    });
+  }
+
+  if (!correctionText) {
+    return res.status(400).json({
+      ok: false,
+      error: "correction_text obrigatorio",
+    });
+  }
+
+  try {
+    const userContext = await getUserContext(userId);
+    const revised = await reviseNutritionDraft({
+      currentAnalysis: currentAnalysisInput,
+      correctionText,
+      userContext,
+    });
+
+    const normalizedAnalysis = normalizeDraftAnalysis(revised.parsed || {});
+    return res.json({
+      ok: true,
+      revised: true,
+      analysis: normalizedAnalysis,
+      quality: normalizedAnalysis.quality,
+      modelUsed: revised.modelUsed || null,
+      rawResponse: revised.rawResponse || null,
+      replyText: formatNutritionReply(normalizedAnalysis),
+    });
+  } catch (err) {
+    const reason = normalizeOpenAiError(err);
+    return res.status(503).json({
+      ok: false,
+      revised: false,
+      reason,
+      message: "Nao foi possivel revisar o rascunho no momento.",
+      details: err.message,
+    });
+  }
+});
+
 const nutritionChatController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
   const { text } = req.body;
@@ -1010,6 +1063,7 @@ module.exports = {
   nutritionImageAnalyzeController,
   nutritionAudioAnalyzeController,
   nutritionRegisterDraftController,
+  nutritionReviseDraftController,
   nutritionChatController,
   reportGenerateController,
   reportListController,

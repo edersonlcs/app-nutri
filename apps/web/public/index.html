@@ -70,6 +70,7 @@
           <article class="metric card">
             <h2>Refeições hoje</h2>
             <p id="metric-meals" class="metric-value">-</p>
+            <p id="metric-meals-sub" class="metric-sub muted">0 kcal no período</p>
             <p id="metric-last-quality" class="metric-sub">sem registro</p>
           </article>
 
@@ -245,6 +246,14 @@
             <h3>Rascunho de refeição (antes de registrar)</h3>
             <p class="muted">Envie texto, foto e/ou áudio para completar o rascunho. Registre só quando estiver tudo certo.</p>
             <div id="nutrition-draft-preview" class="output output-rich">Sem rascunho ativo.</div>
+            <form id="nutrition-draft-correction-form" class="stack">
+              <textarea
+                name="correction_text"
+                rows="2"
+                placeholder='Correção do rascunho. Ex.: "Não era água, era suco de limão sem açúcar."'
+              ></textarea>
+              <button class="btn-secondary" type="submit">Aplicar correção no rascunho</button>
+            </form>
             <form id="nutrition-draft-form" class="stack">
               <select name="meal_slot">
                 <option value="">Refeição detectada automaticamente</option>
@@ -456,6 +465,7 @@
             <li>Para registrar alimentação, envie texto, foto ou áudio da refeição.</li>
             <li>Para água, inclua no texto algo como: "bebi 500 ml de água".</li>
             <li>No Telegram agora o fluxo é por rascunho: envie refeição/foto/áudio, ajuste se precisar, e confirme em <strong>Registrar refeicao</strong>.</li>
+            <li>Para corrigir rascunho (ex.: água x suco), use <strong>Corrigir rascunho</strong> e envie a frase de correção.</li>
             <li>Botões diários principais: <strong>Resumo de hoje</strong>, <strong>Status do corpo</strong>, <strong>Registrar refeicao</strong>, <strong>Sugestao proximo refeicao</strong>, <strong>Plano de hoje</strong>, <strong>Falar com IA</strong>, <strong>Painel</strong> e <strong>Help</strong>.</li>
             <li>Tudo que for registrado no Telegram aparece aqui no painel.</li>
           </ol>
@@ -490,6 +500,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="/web/app.js?v=20260317j" type="module"></script>
+    <script src="/web/app.js?v=20260318a" type="module"></script>
   </body>
 </html>

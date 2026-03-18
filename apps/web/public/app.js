@@ -384,6 +384,7 @@ function renderMetricCards() {
   const waterNode = document.getElementById("metric-water");
   const waterSubNode = document.getElementById("metric-water-sub");
   const mealsNode = document.getElementById("metric-meals");
+  const mealsSubNode = document.getElementById("metric-meals-sub");
   const qualityNode = document.getElementById("metric-last-quality");
   const workoutsNode = document.getElementById("metric-workouts");
   const workoutMinutesNode = document.getElementById("metric-workout-minutes");
@@ -395,16 +396,24 @@ function renderMetricCards() {
     0
   );
   const filteredNutritionCount = (state.cache.nutrition || []).length;
+  const filteredCaloriesTotal = (state.cache.nutrition || []).reduce(
+    (acc, item) => acc + Number(item.estimated_calories || 0),
+    0
+  );
   const filteredWorkoutCount = (state.cache.workouts || []).length;
   const filteredWorkoutMinutes = (state.cache.workouts || []).reduce(
     (acc, item) => acc + Number(item.duration_minutes || 0),
     0
   );
   const latestFilteredNutrition = state.cache.nutrition[0] || null;
+  const dailyCalorieGoal = Number(overview?.today?.nutrition_calories_goal_kcal || 2200);
 
   if (hasActiveDateFilter()) {
     waterNode.textContent = `${fmtNumber(filteredHydrationTotal, 0)} ml`;
-    mealsNode.textContent = String(filteredNutritionCount);
+    mealsNode.textContent = `${fmtNumber(filteredCaloriesTotal, 0)} / ${fmtNumber(dailyCalorieGoal, 0)} kcal`;
+    if (mealsSubNode) {
+      mealsSubNode.textContent = `${filteredNutritionCount} refeições no período`;
+    }
 
     const quality = latestFilteredNutrition?.meal_quality || "sem registro";
     qualityNode.textContent = quality;
@@ -420,7 +429,12 @@ function renderMetricCards() {
     if (!overview) return;
 
     waterNode.textContent = `${fmtNumber(overview.today.hydration_total_ml, 0)} ml`;
-    mealsNode.textContent = String(overview.today.nutrition_count || 0);
+    const caloriesTotal = Number(overview.today.nutrition_calories_total_kcal || 0);
+    const caloriesGoal = Number(overview.today.nutrition_calories_goal_kcal || dailyCalorieGoal || 2200);
+    mealsNode.textContent = `${fmtNumber(caloriesTotal, 0)} / ${fmtNumber(caloriesGoal, 0)} kcal`;
+    if (mealsSubNode) {
+      mealsSubNode.textContent = `${Number(overview.today.nutrition_count || 0)} refeições hoje`;
+    }
 
     const quality = overview.today.latest_nutrition?.meal_quality || "sem registro";
     qualityNode.textContent = quality;
@@ -975,6 +989,32 @@ function renderNutritionDraftPreview() {
   if (slotSelect && !slotSelect.value && draft.analysis?.meal_slot && draft.analysis.meal_slot !== "outro") {
     slotSelect.value = draft.analysis.meal_slot;
   }
+}
+
+function isLikelyDraftCorrectionText(text) {
+  const normalized = String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  if (!normalized) return false;
+
+  const hints = [
+    "nao era",
+    "não era",
+    "corrigir",
+    "correcao",
+    "correção",
+    "desconsidera",
+    "desconsiderar",
+    "trocar para",
+    "substituir",
+    "nao considerar",
+    "não considerar",
+    "ajuste",
+  ];
+
+  return hints.some((term) => normalized.includes(term));
 }
 
 function renderDailyComparison() {
@@ -1862,6 +1902,33 @@ function setupActions() {
   });
 }
 
+async function reviseCurrentNutritionDraft(correctionText) {
+  if (!state.nutritionDraft) {
+    throw new Error("Nenhum rascunho ativo para corrigir.");
+  }
+
+  const userId = await ensureUser();
+  const revised = await apiJson("/api/nutrition/revise-draft", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: userId,
+      current_analysis: state.nutritionDraft.analysis,
+      correction_text: correctionText,
+    }),
+  });
+
+  state.nutritionDraft = {
+    ...state.nutritionDraft,
+    analysis: normalizeAnalysisPayload({ analysis: revised.analysis || {} }),
+    modelUsed: revised.modelUsed || state.nutritionDraft.modelUsed || null,
+    rawResponse: revised.rawResponse || state.nutritionDraft.rawResponse || null,
+    rawInputs: [...(state.nutritionDraft.rawInputs || []), `[correcao] ${correctionText}`].slice(-20),
+    sources: [...(state.nutritionDraft.sources || []), "correção"].slice(-20),
+  };
+
+  return revised;
+}
+
 function setupForms() {
   bindForm("nutrition-form", async (payload, form) => {
     const userId = await ensureUser();
@@ -1887,9 +1954,32 @@ function setupForms() {
       return;
     }
 
+    const rawText = String(payload.text || "").trim();
+    if (state.nutritionDraft && isLikelyDraftCorrectionText(rawText)) {
+      const revised = await reviseCurrentNutritionDraft(rawText);
+      writeOutputHtml(
+        "nutrition-result",
+        buildNutritionAnalysisHtml(
+          { analysis: state.nutritionDraft.analysis },
+          {
+            title: "Correção aplicada ao rascunho",
+            subtitle: "O rascunho foi revisado e substituído com a nova correção.",
+          }
+        )
+      );
+      renderNutritionDraftPreview();
+
+      const previousMode = form.querySelector("select[name='mode']")?.value || "draft";
+      form.reset();
+      const modeSelect = form.querySelector("select[name='mode']");
+      if (modeSelect) modeSelect.value = previousMode;
+      setStatus("Correção aplicada no rascunho. Revise e registre quando estiver certo.", "success");
+      return revised;
+    }
+
     const analysis = await apiJson("/api/nutrition/analyze-text", {
       method: "POST",
-      body: JSON.stringify({ user_id: userId, text: payload.text, persist: false }),
+      body: JSON.stringify({ user_id: userId, text: rawText, persist: false }),
     });
 
     setNutritionDraftFromAnalysis(analysis, "texto");
@@ -2010,6 +2100,41 @@ function setupForms() {
       await refreshAllWithStatus("Refeição registrada a partir do rascunho.");
     } catch (err) {
       setStatus(`Erro ao registrar rascunho: ${err.message}`, "error");
+    }
+  });
+
+  const nutritionDraftCorrectionForm = document.getElementById("nutrition-draft-correction-form");
+  nutritionDraftCorrectionForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+      if (!state.nutritionDraft) {
+        throw new Error("Nenhum rascunho ativo para corrigir.");
+      }
+
+      const formData = new FormData(nutritionDraftCorrectionForm);
+      const correctionText = String(formData.get("correction_text") || "").trim();
+      if (!correctionText) {
+        throw new Error("Escreva a correção antes de enviar.");
+      }
+
+      setStatus("Aplicando correção no rascunho...", "info");
+      await reviseCurrentNutritionDraft(correctionText);
+      writeOutputHtml(
+        "nutrition-result",
+        buildNutritionAnalysisHtml(
+          { analysis: state.nutritionDraft.analysis },
+          {
+            title: "Correção aplicada ao rascunho",
+            subtitle: "Rascunho revisado com sua instrução de correção.",
+          }
+        )
+      );
+      renderNutritionDraftPreview();
+      nutritionDraftCorrectionForm.reset();
+      setStatus("Correção aplicada. Revise e registre quando estiver certo.", "success");
+    } catch (err) {
+      setStatus(`Erro ao corrigir rascunho: ${err.message}`, "error");
     }
   });
 

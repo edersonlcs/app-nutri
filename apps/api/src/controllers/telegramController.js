@@ -5,7 +5,7 @@ const { getWebhookInfo, sendMessage } = require("../integrations/telegramClient"
 const { storeTelegramUpdate } = require("../services/telegramUpdateService");
 const { findOrCreateUserFromTelegram, resolveUserId } = require("../services/userService");
 const { getUserContext } = require("../services/userContextService");
-const { chatNutritionAdvisor } = require("../services/nutritionAiService");
+const { chatNutritionAdvisor, reviseNutritionDraft } = require("../services/nutritionAiService");
 const { getDashboardOverview } = require("../services/dashboardService");
 const {
   listNutritionEntries,
@@ -43,9 +43,10 @@ function buildTelegramDraftKeyboard() {
   return {
     keyboard: [
       [{ text: "Registrar refeicao" }, { text: "Cancelar rascunho" }],
+      [{ text: "Corrigir rascunho" }, { text: "Voltar menu" }],
       [{ text: "Definir Cafe da manha" }, { text: "Definir Almoco" }, { text: "Definir Janta" }],
       [{ text: "Definir Lanche da manha" }, { text: "Definir Lanche da tarde" }, { text: "Definir Ceia" }],
-      [{ text: "Definir Outro" }, { text: "Voltar menu" }],
+      [{ text: "Definir Outro" }],
     ],
     resize_keyboard: true,
     is_persistent: true,
@@ -210,12 +211,38 @@ function resolveDraftAction(rawText) {
     return { type: "menu" };
   }
 
+  if (["corrigir rascunho", "corrigir", "ajustar rascunho", "editar rascunho"].includes(normalized)) {
+    return { type: "correction_help" };
+  }
+
   if (normalized.startsWith("definir ")) {
     const slot = pickMealSlotFromText(normalized.replace(/^definir\s+/, ""));
     if (slot) return { type: "set_slot", slot };
   }
 
   return null;
+}
+
+function isDraftCorrectionText(rawText) {
+  const normalized = normalizeIntentText(rawText);
+  if (!normalized) return false;
+
+  const correctionHints = [
+    "nao era",
+    "não era",
+    "corrigir",
+    "correcao",
+    "correção",
+    "desconsidera",
+    "desconsiderar",
+    "trocar para",
+    "substituir",
+    "nao considerar",
+    "não considerar",
+    "ajuste",
+  ];
+
+  return correctionHints.some((item) => normalized.includes(normalizeIntentText(item)));
 }
 
 function sanitizeWaterIntakePerMessage(value) {
@@ -279,13 +306,13 @@ function formatDraftPreview(draft) {
   const topItems = foodItems.slice(0, 6);
 
   const lines = [
-    "Rascunho da refeicao (ainda nao registrado)",
+    "RASCUNHO DA REFEICAO (nao registrado)",
     "",
     `Refeicao: ${mealLabel}`,
-    `Qualidade: ${analysis.quality || "-"}`,
-    `Resumo: ${analysis.summary || "-"}`,
-    `Impacto: ${analysis.impact || "-"}`,
-    `Acao agora: ${analysis.action_now || "-"}`,
+    `Classificacao geral: ${analysis.quality || "-"}`,
+    `Resumo geral: ${analysis.summary || "-"}`,
+    `Agua detectada: ${Number(analysis.water_intake_ml || 0)} ml | Meta sugerida: ${Number(analysis.water_recommended_ml || 0)} ml`,
+    `Macros estimadas: ${Number(analysis.estimated_calories || 0)} kcal | P ${Number(analysis.protein_g || 0)}g | C ${Number(analysis.carbs_g || 0)}g | G ${Number(analysis.fat_g || 0)}g`,
     "",
     "Itens identificados:",
   ];
@@ -299,7 +326,11 @@ function formatDraftPreview(draft) {
     }
   }
 
+  lines.push("", `Acao de ajuste agora: ${analysis.action_now || "-"}`);
+  lines.push(`Proximo passo: ${analysis.next_step || "-"}`);
   lines.push("", "Se precisar, envie mais texto/foto/audio para ajustar.");
+  lines.push("Para corrigir algo errado, envie uma frase como:");
+  lines.push('- "Nao era agua, era suco de limao sem acucar."');
   lines.push("Quando estiver certo, toque em: Registrar refeicao.");
 
   return lines.join("\n");
@@ -728,6 +759,9 @@ async function buildTelegramDailySummary(userId) {
   const hydrationGoal = Number(overview?.today?.hydration_goal_ml || 3000);
   const hydrationPct = hydrationGoal > 0 ? Number(((hydrationTotal / hydrationGoal) * 100).toFixed(1)) : 0;
   const hydrationMissing = Math.max(0, hydrationGoal - hydrationTotal);
+  const nutritionCaloriesTotal = nutrition.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+  const nutritionCaloriesGoal = Number(overview?.today?.nutrition_calories_goal_kcal || 2200);
+  const nutritionCaloriesRemaining = Math.max(0, nutritionCaloriesGoal - nutritionCaloriesTotal);
 
   const workoutMinutes = workouts.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
   const workoutCalories = workouts.reduce((acc, item) => acc + Number(item.calories_burned_est || 0), 0);
@@ -746,6 +780,8 @@ async function buildTelegramDailySummary(userId) {
     `Falta para meta: ${hydrationMissing} ml`,
     "",
     `Refeições registradas: ${nutrition.length}`,
+    `Calorias consumidas: ${Math.round(nutritionCaloriesTotal)} / ${Math.round(nutritionCaloriesGoal)} kcal`,
+    `Calorias restantes na meta: ${Math.round(nutritionCaloriesRemaining)} kcal`,
     buildMealSlotSummary(nutrition),
     `Qualidade: ${buildQualitySummary(nutrition)}`,
     "",
@@ -897,6 +933,7 @@ function getTelegramHelpText() {
     "1) Envie texto, foto ou audio da refeicao",
     "2) Receba o rascunho (ainda sem salvar)",
     "3) Ajuste com mais texto/foto/audio se precisar",
+    "   - para corrigir erro (ex.: agua x suco), toque em Corrigir rascunho e descreva a correcao",
     "4) Toque em Registrar refeicao quando estiver certo",
     "",
     "Ex.: Almoco: arroz, feijao, frango e 400 ml de agua.",
@@ -1073,6 +1110,71 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
       }
     }
 
+    const activeDraft = getNutritionDraft(appUser.id, message.chat.id);
+
+    if (draftAction?.type === "correction_help") {
+      if (!activeDraft) {
+        await safeReply(
+          message.chat.id,
+          "Nao ha rascunho pendente. Envie texto/foto/audio da refeicao primeiro.",
+          message.message_id
+        );
+        return res.json({ ok: true, handled: "draft_correction_help_missing" });
+      }
+
+      await safeReply(
+        message.chat.id,
+        [
+          "Envie a correcao em uma frase.",
+          'Exemplo: "Nao era agua, era suco de limao sem acucar."',
+          "Vou revisar o rascunho inteiro com essa correcao.",
+        ].join("\n"),
+        message.message_id,
+        { reply_markup: buildTelegramDraftKeyboard() }
+      );
+      return res.json({ ok: true, handled: "draft_correction_help" });
+    }
+
+    if (activeDraft && isDraftCorrectionText(rawText) && !draftAction) {
+      try {
+        const userContext = await getUserContext(appUser.id);
+        const revised = await reviseNutritionDraft({
+          currentAnalysis: activeDraft.analysis || {},
+          correctionText: rawText,
+          userContext,
+        });
+
+        const updatedDraft = {
+          ...activeDraft,
+          analysis: revised.parsed || activeDraft.analysis || {},
+          models: [...(activeDraft.models || []), revised.modelUsed].filter(Boolean).slice(-6),
+          lastRawResponse: revised.rawResponse || activeDraft.lastRawResponse || "",
+          inputs: [
+            ...(activeDraft.inputs || []),
+            {
+              inputType: "text",
+              modality: "text",
+              rawInputText: `[correcao] ${rawText}`,
+              at: new Date().toISOString(),
+            },
+          ].slice(-20),
+        };
+
+        setNutritionDraft(appUser.id, message.chat.id, updatedDraft);
+        await safeReply(
+          message.chat.id,
+          `Correcao aplicada no rascunho.\n\n${formatDraftPreview(updatedDraft)}`,
+          message.message_id,
+          { reply_markup: buildTelegramDraftKeyboard() }
+        );
+        return res.json({ ok: true, handled: "draft_corrected", draft: true });
+      } catch (err) {
+        const aiError = normalizeOpenAiError(err);
+        await safeReply(message.chat.id, aiError.userMessage, message.message_id);
+        return res.json({ ok: true, handled: "draft_corrected", analyzed: false, reason: aiError.code });
+      }
+    }
+
     if (shouldUseChatMode(rawText)) {
       try {
         await runChatMode({
@@ -1088,8 +1190,6 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
         return res.json({ ok: true, handled: "chat", analyzed: false, reason: aiError.code });
       }
     }
-
-    const activeDraft = getNutritionDraft(appUser.id, message.chat.id);
     if (draftAction?.type === "register") {
       if (!activeDraft) {
         await safeReply(

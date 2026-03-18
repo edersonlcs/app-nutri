@@ -231,6 +231,10 @@ Melhorias aplicadas apos uso real no web/telegram:
   - analise por texto/foto/audio sem persistir automaticamente,
   - revisao visual em cards (resumo, classificacao, macros, itens e motivo),
   - confirmacao manual em `Registrar refeicao do rascunho` com opcao de ajustar o tipo de refeicao;
+- card `Refeicoes hoje` atualizado para mostrar calorias consumidas no periodo (`consumido / meta`) e total de refeicoes;
+- rascunho com correcao inteligente (web + telegram):
+  - permite corrigir frase tipo `nao era agua, era suco de limao`,
+  - revisa o rascunho inteiro e substitui informacao conflitante (em vez de apenas somar).
 - chat da IA mais conversacional e contextualizado com historico clinico (menos resposta engessada);
 - protecao para nao registrar hidratacao automatica fora de faixa por mensagem (anti-hallucination).
 

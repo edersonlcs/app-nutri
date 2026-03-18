@@ -205,6 +205,39 @@ async function analyzeTextNutrition(messageText, userContext) {
   );
 }
 
+async function reviseNutritionDraft({ currentAnalysis, correctionText, userContext }) {
+  const safeCurrent = currentAnalysis && typeof currentAnalysis === "object" ? currentAnalysis : {};
+  const safeCorrection = String(correctionText || "").trim();
+
+  return parseStructuredNutrition(
+    [
+      { role: "system", content: buildSystemPrompt() },
+      {
+        role: "user",
+        content: [
+          "Voce vai revisar um rascunho nutricional ja existente com base em uma correcao do usuario.",
+          "Atualize o resultado final substituindo informacoes conflitantes pela correcao.",
+          "Se o usuario disser que nao era agua, zere water_intake_ml quando apropriado.",
+          "Nao some valores antigos quando a correcao substituir itens anteriores.",
+          "",
+          "Rascunho atual (JSON):",
+          JSON.stringify(safeCurrent),
+          "",
+          "Correcao do usuario:",
+          safeCorrection || "(sem texto de correcao)",
+          "",
+          "Contexto do usuario (JSON):",
+          JSON.stringify(userContext || {}),
+          "",
+          "Retorne somente JSON no schema solicitado.",
+        ].join("\n"),
+      },
+    ],
+    cfg.openaiModelText,
+    DEFAULT_TEXT_FALLBACK_MODELS
+  );
+}
+
 async function analyzeImageNutrition({ imageBuffer, mimeType, caption, userContext }) {
   const normalizedMimeType = (() => {
     const normalized = String(mimeType || "")
@@ -316,4 +349,5 @@ module.exports = {
   transcribeAudioFile,
   chatNutritionAdvisor,
   formatNutritionReply,
+  reviseNutritionDraft,
 };

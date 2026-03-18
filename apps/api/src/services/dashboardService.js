@@ -15,6 +15,27 @@ function startOfWeekUtc() {
   return ref.toISOString();
 }
 
+function toNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function estimateDailyCaloriesGoal({ profile, latestMeasurement, latestBio }) {
+  const bmr = toNumberOrNull(latestBio?.bmr_kcal);
+  if (bmr && bmr > 900) {
+    const estimated = bmr * 1.25;
+    return Math.max(1400, Math.min(4200, Math.round(estimated / 50) * 50));
+  }
+
+  const weight = toNumberOrNull(latestMeasurement?.weight_kg) ?? toNumberOrNull(profile?.baseline_weight_kg);
+  if (weight && weight > 30) {
+    const estimated = weight * 24 * 1.2;
+    return Math.max(1400, Math.min(4200, Math.round(estimated / 50) * 50));
+  }
+
+  return 2200;
+}
+
 async function getDashboardOverview(userId) {
   const todayStart = startOfTodayUtc();
   const weekStart = startOfWeekUtc();
@@ -64,7 +85,7 @@ async function getDashboardOverview(userId) {
       .gte("recorded_at", todayStart),
     supabase
       .from("nutrition_entries")
-      .select("meal_quality, analyzed_summary, recorded_at")
+      .select("meal_quality, analyzed_summary, estimated_calories, recorded_at")
       .eq("user_id", userId)
       .gte("recorded_at", todayStart)
       .order("recorded_at", { ascending: false })
@@ -85,6 +106,10 @@ async function getDashboardOverview(userId) {
   }
 
   const hydrationTodayMl = (hydrationRes.data || []).reduce((acc, item) => acc + (item.amount_ml || 0), 0);
+  const nutritionTodayCalories = (nutritionRes.data || []).reduce(
+    (acc, item) => acc + Number(item.estimated_calories || 0),
+    0
+  );
   const recentExams = examListRes.data || [];
   const latestExam = recentExams[0] || null;
   const latestExamWithMarkers =
@@ -94,6 +119,13 @@ async function getDashboardOverview(userId) {
     latestBio: bioRes.data || null,
     latestExam: latestExamWithMarkers,
   });
+  const caloriesGoal = estimateDailyCaloriesGoal({
+    profile: profileRes.data || null,
+    latestMeasurement: measurementRes.data || null,
+    latestBio: bioRes.data || null,
+  });
+  const caloriesProgress = caloriesGoal > 0 ? Number(((nutritionTodayCalories / caloriesGoal) * 100).toFixed(1)) : 0;
+  const caloriesRemaining = Math.max(0, caloriesGoal - nutritionTodayCalories);
 
   return {
     user: userRes.data,
@@ -107,6 +139,10 @@ async function getDashboardOverview(userId) {
       hydration_goal_ml: 3000,
       hydration_progress_pct: Number(((hydrationTodayMl / 3000) * 100).toFixed(1)),
       nutrition_count: nutritionRes.data?.length || 0,
+      nutrition_calories_total_kcal: Number(nutritionTodayCalories.toFixed(0)),
+      nutrition_calories_goal_kcal: caloriesGoal,
+      nutrition_calories_remaining_kcal: Number(caloriesRemaining.toFixed(0)),
+      nutrition_calories_progress_pct: caloriesProgress,
       latest_nutrition: nutritionRes.data?.[0] || null,
     },
     week: {
