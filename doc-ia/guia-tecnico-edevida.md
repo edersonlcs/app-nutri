@@ -29,6 +29,14 @@ Este documento registra como o sistema foi montado e como ajustar no futuro sem 
 6. Backend persiste em `nutrition_entries` (+ `hydration_logs` quando aplicavel).
 7. Painel web e Telegram leem os mesmos dados do Supabase.
 
+Fluxo de edicao (web):
+
+1. Usuario abre `Nutricao > Detalhado de alimentacao`.
+2. Clica em `Editar lancamento` dentro do card da refeicao.
+3. Ajusta grupo alimentar, resumo, alimentos e data/hora.
+4. Web salva com `PATCH /api/nutrition/:id`.
+5. Painel recarrega e exibe confirmacao `Cadastro atualizado com sucesso`.
+
 ## 4) Telegram (estado atual)
 
 Teclado principal:
@@ -55,6 +63,10 @@ Comandos:
 - `/rascunho`
 - `/chat <pergunta>`
 - `/painel`
+
+Observacao de audio:
+
+- audios de voz do Telegram (`.oga/.opus`) sao normalizados automaticamente para `.ogg` antes da transcricao, evitando falha por formato.
 
 ## 5) Limpeza de dados de teste
 
@@ -86,6 +98,8 @@ Flags uteis:
 - Ajustar persona nutricional/chat: `apps/api/src/services/nutritionAiService.js`
 - Ajustar analise de exames: `apps/api/src/services/healthAttachmentAiService.js`
 - Ajustar dashboard/web: `apps/web/public/app.js` + `apps/web/public/index.html` + `apps/web/public/styles.css`
+- Ajustar compatibilidade de transcricao de audio: `apps/api/src/services/nutritionAiService.js` e `apps/api/src/services/telegramMessageProcessor.js`
+- Ajustar endpoint de edicao de lancamentos: `apps/api/src/controllers/trackingController.js` + `apps/api/src/services/trackingDataService.js`
 
 ## 7) Checklist rapido pos-alteracao
 
