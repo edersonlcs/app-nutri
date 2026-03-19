@@ -973,6 +973,10 @@ h3 {
   gap: 0.55rem;
 }
 
+.ai-models-editor {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .photo-input-grid {
   display: grid;
   gap: 0.55rem;

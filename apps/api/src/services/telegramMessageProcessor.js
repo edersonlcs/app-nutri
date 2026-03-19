@@ -7,6 +7,7 @@ const {
   transcribeAudioFile,
   formatNutritionReply,
 } = require("./nutritionAiService");
+const { resolveAiSettingsFromUserContext } = require("./aiModelConfigService");
 const { getUserContext } = require("./userContextService");
 const { saveAiInteraction, saveHydrationLog, saveNutritionEntry } = require("./nutritionEntryService");
 const { downloadFileBuffer } = require("../integrations/telegramClient");
@@ -373,9 +374,11 @@ async function processAudioBufferInput({
 
   try {
     const userContext = await getUserContext(appUser.id);
+    const aiSettings = resolveAiSettingsFromUserContext(userContext);
+    const transcribeModel = aiSettings?.models?.transcribe || null;
     let transcription = null;
     try {
-      transcription = await transcribeAudioFile({ filePath: tempFilePath });
+      transcription = await transcribeAudioFile({ filePath: tempFilePath, modelOverride: transcribeModel });
     } catch (err) {
       const errorText = String(err?.message || "").toLowerCase();
       const shouldRetryAsOgg =
@@ -389,7 +392,7 @@ async function processAudioBufferInput({
       const retryFilePath = path.join(runtimeTempDir, `${randomUUID()}.ogg`);
       await fs.copyFile(tempFilePath, retryFilePath);
       try {
-        transcription = await transcribeAudioFile({ filePath: retryFilePath });
+        transcription = await transcribeAudioFile({ filePath: retryFilePath, modelOverride: transcribeModel });
       } finally {
         await fs.unlink(retryFilePath).catch(() => {});
       }

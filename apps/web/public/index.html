@@ -598,6 +598,41 @@
 
       <section id="tab-ia" class="tab-panel">
         <article class="card">
+          <h3>Perfil de IA (com seleção)</h3>
+          <form id="ai-settings-form" class="stack">
+            <label class="filter-field">
+              <span>Perfil atual</span>
+              <select id="ai-profile-select" name="profile">
+                <option value="recomendado">Recomendado</option>
+                <option value="economico">Econômico</option>
+                <option value="clinico">Clínico</option>
+              </select>
+            </label>
+            <p id="ai-settings-summary" class="muted">Carregando configuração...</p>
+
+            <details>
+              <summary>Ajuste fino dos modelos (opcional)</summary>
+              <div class="stack ai-models-editor">
+                <label class="filter-field"><span>Texto alimento</span><input name="food_text" type="text" placeholder="gpt-4.1-mini" /></label>
+                <label class="filter-field"><span>Foto alimento</span><input name="food_vision" type="text" placeholder="gpt-4.1-mini" /></label>
+                <label class="filter-field"><span>Conversa IA</span><input name="chat" type="text" placeholder="gpt-5.4-mini" /></label>
+                <label class="filter-field"><span>Motivo / alternativas</span><input name="draft_revision" type="text" placeholder="gpt-5.4-mini" /></label>
+                <label class="filter-field"><span>Exame upload (PDF/texto)</span><input name="exam_upload_text" type="text" placeholder="gpt-5.4" /></label>
+                <label class="filter-field"><span>Exame upload (imagem)</span><input name="exam_upload_vision" type="text" placeholder="gpt-5.4" /></label>
+                <label class="filter-field"><span>Exames no dia a dia</span><input name="exam_followup" type="text" placeholder="gpt-5.4-mini" /></label>
+                <label class="filter-field"><span>Transcrição de áudio</span><input name="transcribe" type="text" placeholder="gpt-4o-mini-transcribe" /></label>
+              </div>
+            </details>
+
+            <div class="nutrition-edit-actions">
+              <button class="btn-secondary" type="submit">Salvar configuração IA</button>
+              <button id="ai-reset-custom-btn" class="btn-ghost" type="button">Limpar ajustes finos</button>
+            </div>
+          </form>
+          <pre id="ai-settings-result" class="output">Sem alterações salvas nesta sessão.</pre>
+        </article>
+
+        <article class="card">
           <h3>O que a IA faz</h3>
           <div id="ai-capabilities-list" class="history-list"></div>
         </article>
@@ -626,6 +661,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="/web/app.js?v=20260318s" type="module"></script>
+    <script src="/web/app.js?v=20260319b" type="module"></script>
   </body>
 </html>

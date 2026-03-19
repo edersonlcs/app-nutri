@@ -634,6 +634,24 @@ Entregue:
   - modo conversa do Telegram reforcado para comportamento de chat continuo (sem cair no fluxo de registro enquanto o modo estiver ativo)
   - script de reset para novo ciclo de testes: `npm run reset:test-data` (limpa dados do Supabase + arquivos em `temp/`)
   - documentacao tecnica de manutencao criada em `doc-ia/guia-tecnico-edevida.md`
+  - aba `IA` evoluida para configuracao por perfil com selecao direta no painel:
+    - perfis `Economico`, `Recomendado` e `Clinico`
+    - ajuste fino de modelos por rota (`food_text`, `food_vision`, `chat`, `draft_revision`, `exam_upload_text`, `exam_upload_vision`, `exam_followup`, `transcribe`)
+  - novo roteamento padrao recomendado:
+    - analise de alimento (texto/foto): `gpt-4.1-mini`
+    - orientacao contextual (`Mensagem IA`, `Motivo`, `Alternativas` e chat): `gpt-5.4-mini`
+    - upload de exame (PDF/imagem): `gpt-5.4`
+    - transcricao de audio: `gpt-4o-mini-transcribe`
+  - endpoints de configuracao de IA adicionados:
+    - `GET /api/ai/info?user_id=...`
+    - `POST /api/ai/settings`
+  - historico de anexos com acoes no web:
+    - `Excluir anexo` para exame e bioimpedancia (remove registro e tenta remover arquivo local)
+    - `Editar exame` para corrigir nome/tipo/data quando necessario
+  - backend com novos endpoints para anexos:
+    - `PATCH /api/medical-exams/:id`
+    - `DELETE /api/medical-exams/:id`
+    - `DELETE /api/bioimpedance/:id`
 
 ### Atividade 12 - Deploy VPS
 

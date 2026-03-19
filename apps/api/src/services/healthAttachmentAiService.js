@@ -185,7 +185,8 @@ async function extractPdfText(absolutePath) {
   return text;
 }
 
-async function analyzeMedicalExamText({ rawText }) {
+async function analyzeMedicalExamText({ rawText, modelOverride }) {
+  const primaryModel = String(modelOverride || "").trim() || cfg.openaiModelExamText;
   return parseJsonWithSchema(
     [
       { role: "system", content: buildMedicalExamSpecialistPrompt() },
@@ -200,12 +201,13 @@ async function analyzeMedicalExamText({ rawText }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelExamText,
-    [cfg.openaiModelText, ...DEFAULT_TEXT_FALLBACK_MODELS]
+    primaryModel,
+    [cfg.openaiModelExamText, cfg.openaiModelText, ...DEFAULT_TEXT_FALLBACK_MODELS]
   );
 }
 
-async function analyzeMedicalExamImage({ imageBuffer, mimeType }) {
+async function analyzeMedicalExamImage({ imageBuffer, mimeType, modelOverride }) {
+  const primaryModel = String(modelOverride || "").trim() || cfg.openaiModelExamVision;
   return parseJsonWithSchema(
     [
       { role: "system", content: buildMedicalExamSpecialistPrompt() },
@@ -221,8 +223,8 @@ async function analyzeMedicalExamImage({ imageBuffer, mimeType }) {
       },
     ],
     medicalExamSchema,
-    cfg.openaiModelExamVision,
-    [cfg.openaiModelVision, ...DEFAULT_VISION_FALLBACK_MODELS]
+    primaryModel,
+    [cfg.openaiModelExamVision, cfg.openaiModelVision, ...DEFAULT_VISION_FALLBACK_MODELS]
   );
 }
 

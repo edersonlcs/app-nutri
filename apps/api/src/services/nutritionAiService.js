@@ -4,6 +4,7 @@ const { openai } = require("../integrations/openaiClient");
 const { cfg } = require("../config/env");
 const { FOOD_QUALITY_SCALE } = require("../config/constants");
 const { getPersonaDocument } = require("./personaService");
+const { resolveAiSettingsFromUserContext } = require("./aiModelConfigService");
 const {
   DEFAULT_TEXT_FALLBACK_MODELS,
   DEFAULT_VISION_FALLBACK_MODELS,
@@ -198,6 +199,37 @@ function normalizeChatReplyText(rawContent) {
   return limited || compact;
 }
 
+function normalizeSimpleText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function shouldUseExamFollowupModel(messageText) {
+  const normalized = normalizeSimpleText(messageText);
+  if (!normalized) return false;
+
+  const keywords = [
+    "exame",
+    "creatinina",
+    "ureia",
+    "colesterol",
+    "hdl",
+    "ldl",
+    "triglicerideos",
+    "glicemia",
+    "hemoglobina",
+    "figado",
+    "rins",
+    "nefro",
+    "cardio",
+  ];
+
+  return keywords.some((term) => normalized.includes(term));
+}
+
 async function parseStructuredNutrition(messages, model, fallbackModels = []) {
   const completion = await runWithModelFallback({
     primaryModel: model,
@@ -226,20 +258,30 @@ async function parseStructuredNutrition(messages, model, fallbackModels = []) {
   };
 }
 
+function getAiModelsFromContext(userContext) {
+  const resolved = resolveAiSettingsFromUserContext(userContext || {});
+  return resolved.models || {};
+}
+
 async function analyzeTextNutrition(messageText, userContext) {
+  const aiModels = getAiModelsFromContext(userContext);
+  const primaryModel = aiModels.food_text || cfg.openaiModelText;
+
   return parseStructuredNutrition(
     [
       { role: "system", content: buildSystemPrompt() },
       { role: "user", content: buildUserPrompt(messageText, userContext) },
     ],
-    cfg.openaiModelText,
-    DEFAULT_TEXT_FALLBACK_MODELS
+    primaryModel,
+    [cfg.openaiModelText, cfg.openaiModelChat, ...DEFAULT_TEXT_FALLBACK_MODELS]
   );
 }
 
 async function reviseNutritionDraft({ currentAnalysis, correctionText, userContext }) {
   const safeCurrent = currentAnalysis && typeof currentAnalysis === "object" ? currentAnalysis : {};
   const safeCorrection = String(correctionText || "").trim();
+  const aiModels = getAiModelsFromContext(userContext);
+  const primaryModel = aiModels.draft_revision || aiModels.chat || cfg.openaiModelChat;
 
   return parseStructuredNutrition(
     [
@@ -265,8 +307,8 @@ async function reviseNutritionDraft({ currentAnalysis, correctionText, userConte
         ].join("\n"),
       },
     ],
-    cfg.openaiModelText,
-    DEFAULT_TEXT_FALLBACK_MODELS
+    primaryModel,
+    [aiModels.chat, cfg.openaiModelChat, cfg.openaiModelText, ...DEFAULT_TEXT_FALLBACK_MODELS]
   );
 }
 
@@ -290,6 +332,8 @@ async function analyzeImageNutrition({ imageBuffer, mimeType, caption, userConte
     caption || "Analise esta imagem de refeicao e identifique alimentos/bebidas.",
     userContext
   );
+  const aiModels = getAiModelsFromContext(userContext);
+  const primaryModel = aiModels.food_vision || cfg.openaiModelVision;
 
   return parseStructuredNutrition(
     [
@@ -302,16 +346,17 @@ async function analyzeImageNutrition({ imageBuffer, mimeType, caption, userConte
         ],
       },
     ],
-    cfg.openaiModelVision,
-    DEFAULT_VISION_FALLBACK_MODELS
+    primaryModel,
+    [aiModels.food_text, cfg.openaiModelVision, cfg.openaiModelText, ...DEFAULT_VISION_FALLBACK_MODELS]
   );
 }
 
-async function transcribeAudioFile({ filePath }) {
+async function transcribeAudioFile({ filePath, modelOverride }) {
   const absolutePath = path.resolve(filePath);
   const extension = path.extname(absolutePath).toLowerCase();
   let transcriptionPath = absolutePath;
   let cleanupPath = null;
+  const primaryModel = String(modelOverride || "").trim() || cfg.openaiModelTranscribe;
 
   if (extension === ".oga" || extension === ".opus") {
     transcriptionPath = absolutePath.replace(/\.(oga|opus)$/i, ".ogg");
@@ -320,8 +365,8 @@ async function transcribeAudioFile({ filePath }) {
   }
 
   const transcription = await runWithModelFallback({
-    primaryModel: cfg.openaiModelTranscribe,
-    fallbackModels: DEFAULT_TRANSCRIBE_FALLBACK_MODELS,
+    primaryModel,
+    fallbackModels: [cfg.openaiModelTranscribe, ...DEFAULT_TRANSCRIBE_FALLBACK_MODELS],
     context: "nutrition_transcribe",
     runner: async (currentModel) =>
       openai.audio.transcriptions.create({
@@ -341,14 +386,25 @@ async function transcribeAudioFile({ filePath }) {
 
   return {
     transcriptText,
-    modelUsed: cfg.openaiModelTranscribe,
+    modelUsed: transcription.model || primaryModel,
   };
 }
 
 async function chatNutritionAdvisor(messageText, userContext) {
+  const aiModels = getAiModelsFromContext(userContext);
+  const prefersExamModel = shouldUseExamFollowupModel(messageText);
+  const primaryModel = prefersExamModel
+    ? aiModels.exam_followup || aiModels.chat || cfg.openaiModelChat
+    : aiModels.chat || cfg.openaiModelChat;
   const completion = await runWithModelFallback({
-    primaryModel: cfg.openaiModelChat,
-    fallbackModels: [cfg.openaiModelText, ...DEFAULT_TEXT_FALLBACK_MODELS],
+    primaryModel,
+    fallbackModels: [
+      aiModels.exam_followup,
+      aiModels.draft_revision,
+      cfg.openaiModelChat,
+      cfg.openaiModelText,
+      ...DEFAULT_TEXT_FALLBACK_MODELS,
+    ],
     context: "nutrition_chat",
     runner: async (currentModel) =>
       openai.chat.completions.create({
@@ -367,7 +423,7 @@ async function chatNutritionAdvisor(messageText, userContext) {
 
   return {
     replyText: normalizeChatReplyText(content),
-    modelUsed: completion.model || cfg.openaiModelChat,
+    modelUsed: completion.model || primaryModel,
   };
 }
 

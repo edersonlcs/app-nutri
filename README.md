@@ -48,6 +48,7 @@ curl http://127.0.0.1:3000/painel
 - Analise nutricional por texto com OpenAI
 - Analise de foto de refeicao (visao) com OpenAI
 - Analise de audio (transcricao + analise) com OpenAI
+- Compatibilidade de audio Telegram para voz `.oga/.opus` (normalizacao automatica para transcricao)
 - Classificacao de qualidade da refeicao em 5 niveis:
   - `otimo`
   - `bom`
@@ -55,11 +56,14 @@ curl http://127.0.0.1:3000/painel
   - `ruim`
   - `nunca coma`
 - Registro automatico de hidratacao quando detectado na analise
+- Edicao de lancamentos alimentares no web (grupo alimentar, resumo, alimentos e data/hora)
+- Aba `IA` com perfis configuraveis por usuario (`Econômico`, `Recomendado`, `Clínico`) e ajuste fino de modelos
 - API para perfil, metas, medidas corporais, bioimpedancia, exames, hidratacao e treinos
 - Relatorios diarios/semanais/mensais com resumo agregado
 - Painel web com abas, historicos e graficos em `/painel`
 - Recomendacao inicial de treino (base para modulo personal trainer)
 - Upload de anexos (bioimpedancia e exames) com compressao automatica de imagem
+- Excluir anexo enviado (com limpeza do arquivo local) e editar metadados do exame
 - Fallback automatico de modelos OpenAI quando um modelo nao estiver liberado na conta
 
 ## Endpoints principais
@@ -69,12 +73,17 @@ curl http://127.0.0.1:3000/painel
 - `GET /api/telegram/webhook-info`
 - `GET /api/users?auto_create=1`
 - `POST /api/nutrition/analyze-text`
+- `PATCH /api/nutrition/:id` (editar lancamento alimentar)
 - `POST /api/hydration`
 - `POST /api/measurements`
 - `POST /api/bioimpedance`
 - `POST /api/bioimpedance/upload` (anexo imagem + IA)
+- `DELETE /api/bioimpedance/:id` (remover registro + tentar apagar arquivo do anexo)
 - `POST /api/medical-exams`
 - `POST /api/medical-exams/upload` (anexo PDF/imagem + IA)
+- `PATCH /api/medical-exams/:id` (editar nome/tipo/data/observacoes do exame)
+- `DELETE /api/medical-exams/:id` (remover exame + tentar apagar arquivo do anexo)
+- `GET /api/ai/info` e `POST /api/ai/settings` (visualizar/alterar perfil de modelos IA)
 - `POST /api/workouts`
 - `POST /api/reports/generate`
 - `GET /api/dashboard/overview`

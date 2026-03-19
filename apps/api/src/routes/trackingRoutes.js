@@ -12,9 +12,12 @@ const {
   bioimpedanceCreateController,
   bioimpedanceUploadController,
   bioimpedanceListController,
+  bioimpedanceDeleteController,
   medicalExamCreateController,
   medicalExamUploadController,
   medicalExamListController,
+  medicalExamUpdateController,
+  medicalExamDeleteController,
   hydrationCreateController,
   hydrationListController,
   workoutCreateController,
@@ -28,6 +31,7 @@ const {
   nutritionReviseDraftController,
   nutritionChatController,
   aiInfoController,
+  aiSettingsUpdateController,
   reportGenerateController,
   reportListController,
   dashboardOverviewController,
@@ -55,10 +59,13 @@ router.post("/api/measurements/progress-photo", upload.single("file"), bodyMeasu
 router.get("/api/bioimpedance", bioimpedanceListController);
 router.post("/api/bioimpedance", bioimpedanceCreateController);
 router.post("/api/bioimpedance/upload", upload.single("file"), bioimpedanceUploadController);
+router.delete("/api/bioimpedance/:id", bioimpedanceDeleteController);
 
 router.get("/api/medical-exams", medicalExamListController);
 router.post("/api/medical-exams", medicalExamCreateController);
 router.post("/api/medical-exams/upload", upload.single("file"), medicalExamUploadController);
+router.patch("/api/medical-exams/:id", medicalExamUpdateController);
+router.delete("/api/medical-exams/:id", medicalExamDeleteController);
 
 router.get("/api/hydration", hydrationListController);
 router.post("/api/hydration", hydrationCreateController);
@@ -76,6 +83,7 @@ router.post("/api/nutrition/register-draft", nutritionRegisterDraftController);
 router.post("/api/nutrition/revise-draft", nutritionReviseDraftController);
 router.post("/api/nutrition/chat", nutritionChatController);
 router.get("/api/ai/info", aiInfoController);
+router.post("/api/ai/settings", aiSettingsUpdateController);
 
 router.get("/api/reports", reportListController);
 router.post("/api/reports/generate", reportGenerateController);

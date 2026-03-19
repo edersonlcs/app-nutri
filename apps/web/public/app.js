@@ -2848,13 +2848,112 @@ function extractUploadUrlFromNotes(notes) {
   return match ? match[1] : "";
 }
 
+function toDateInputOrEmpty(value) {
+  const parsed = parseDateForDisplay(value);
+  if (!parsed) return "";
+  return dateToInputValue(parsed);
+}
+
+function getExamById(examId) {
+  const source = state.cache.examsAll?.length ? state.cache.examsAll : state.cache.exams || [];
+  return source.find((item) => String(item.id) === String(examId)) || null;
+}
+
+async function deleteAttachmentEntry(kind, recordId) {
+  const userId = await ensureUser();
+  const id = encodeURIComponent(String(recordId || "").trim());
+  const query = queryStringFromObject({ user_id: userId });
+  const endpoint =
+    kind === "exame"
+      ? `/api/medical-exams/${id}?${query}`
+      : `/api/bioimpedance/${id}?${query}`;
+
+  await apiJson(endpoint, { method: "DELETE" });
+}
+
+async function editExamAttachment(recordId) {
+  const exam = getExamById(recordId);
+  if (!exam) {
+    throw new Error("Exame não encontrado para edição.");
+  }
+
+  const nextName = window.prompt("Nome do exame:", exam.exam_name || "Exame");
+  if (nextName === null) return false;
+  const examName = String(nextName || "").trim();
+  if (!examName) {
+    throw new Error("Nome do exame não pode ficar vazio.");
+  }
+
+  const nextType = window.prompt("Tipo do exame:", exam.exam_type || "");
+  if (nextType === null) return false;
+
+  const currentDate = toDateInputOrEmpty(exam.exam_date || exam.created_at);
+  const nextDate = window.prompt("Data do exame (AAAA-MM-DD):", currentDate);
+  if (nextDate === null) return false;
+
+  const userId = await ensureUser();
+  const query = queryStringFromObject({ user_id: userId });
+  await apiJson(`/api/medical-exams/${encodeURIComponent(String(recordId))}?${query}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      user_id: userId,
+      exam_name: examName,
+      exam_type: String(nextType || "").trim() || null,
+      exam_date: String(nextDate || "").trim() || null,
+    }),
+  });
+
+  return true;
+}
+
+function setupAttachmentHistoryActions() {
+  const container = document.getElementById("attachments-history-list");
+  if (!container || container.dataset.bound === "1") return;
+
+  container.dataset.bound = "1";
+  container.addEventListener("click", async (event) => {
+    const actionButton = event.target.closest("button[data-attachment-action]");
+    if (!actionButton) return;
+
+    const action = actionButton.dataset.attachmentAction;
+    const kind = actionButton.dataset.kind;
+    const recordId = actionButton.dataset.id;
+    if (!action || !kind || !recordId) return;
+
+    try {
+      if (action === "delete") {
+        const ok = window.confirm("Deseja realmente excluir este anexo e o registro associado?");
+        if (!ok) return;
+        setStatus("Removendo anexo...", "info");
+        await deleteAttachmentEntry(kind, recordId);
+        await refreshAllWithStatus("Anexo removido com sucesso.");
+        return;
+      }
+
+      if (action === "edit" && kind === "exame") {
+        setStatus("Abrindo edição do exame...", "info");
+        const changed = await editExamAttachment(recordId);
+        if (changed) {
+          await refreshAllWithStatus("Exame atualizado com sucesso.");
+        } else {
+          setStatus("Edição do exame cancelada.", "info");
+        }
+      }
+    } catch (err) {
+      setStatus(`Erro ao processar anexo: ${err.message}`, "error");
+    }
+  });
+}
+
 function renderAttachmentsHistory() {
   const container = document.getElementById("attachments-history-list");
   if (!container) return;
 
   const bioSource = state.cache.bioimpedanceAll?.length ? state.cache.bioimpedanceAll : state.cache.bioimpedance || [];
   const bioEntries = bioSource.map((item) => ({
+    id: item.id,
     kind: "bioimpedância",
+    kindKey: "bioimpedancia",
     title: "Anexo de bioimpedância",
     date: item.recorded_at || item.created_at,
     markersCount: null,
@@ -2862,7 +2961,9 @@ function renderAttachmentsHistory() {
   }));
 
   const examEntries = (state.cache.examsAll?.length ? state.cache.examsAll : state.cache.exams || []).map((item) => ({
+    id: item.id,
     kind: "exame",
+    kindKey: "exame",
     title: item.exam_name || "Anexo de exame",
     date: item.exam_date || item.created_at,
     markersCount: Object.keys(item.markers || {}).length,
@@ -2895,6 +2996,18 @@ function renderAttachmentsHistory() {
           ? `<a class="file-link" href="${escapeHtml(item.fileUrl)}" target="_blank" rel="noreferrer">Abrir anexo</a>`
           : "<span class=\"muted\">Arquivo referenciado na nota do registro</span>"
       }</p>
+      ${
+        item.id
+          ? `<div class="nutrition-edit-actions">
+              ${
+                item.kindKey === "exame"
+                  ? `<button class="btn-ghost" type="button" data-attachment-action="edit" data-kind="${escapeHtml(item.kindKey)}" data-id="${escapeHtml(item.id)}">Editar exame</button>`
+                  : ""
+              }
+              <button class="btn-ghost" type="button" data-attachment-action="delete" data-kind="${escapeHtml(item.kindKey)}" data-id="${escapeHtml(item.id)}">Excluir anexo</button>
+            </div>`
+          : `<p class="muted">Registro antigo sem id para edição/exclusão rápida.</p>`
+      }
     </article>
   `).join("");
 }
@@ -3507,14 +3620,44 @@ function renderTelegramInfo() {
   writeOutput("telegram-webhook-status", simplified);
 }
 
+function findAiProfileByKey(profileKey) {
+  const profiles = state.cache.aiInfo?.ai?.profiles || [];
+  return profiles.find((item) => item?.key === profileKey) || null;
+}
+
+function fillAiModelInputs(models) {
+  const settingsForm = document.getElementById("ai-settings-form");
+  if (!settingsForm) return;
+
+  const modelFieldNames = [
+    "food_text",
+    "food_vision",
+    "chat",
+    "draft_revision",
+    "exam_upload_text",
+    "exam_upload_vision",
+    "exam_followup",
+    "transcribe",
+  ];
+
+  for (const fieldName of modelFieldNames) {
+    const input = settingsForm.querySelector(`input[name=\"${fieldName}\"]`);
+    if (!input) continue;
+    input.value = String(models?.[fieldName] || "");
+  }
+}
+
 function renderAiInfo() {
   const capabilitiesNode = document.getElementById("ai-capabilities-list");
   const modelsNode = document.getElementById("ai-models-list");
   const personaSourceNode = document.getElementById("ai-persona-source");
   const personaPreviewNode = document.getElementById("ai-persona-preview");
   const personaFullNode = document.getElementById("ai-persona-full");
+  const profileSelect = document.getElementById("ai-profile-select");
+  const summaryNode = document.getElementById("ai-settings-summary");
+  const settingsForm = document.getElementById("ai-settings-form");
 
-  if (!capabilitiesNode || !modelsNode || !personaSourceNode || !personaPreviewNode || !personaFullNode) {
+  if (!capabilitiesNode || !modelsNode || !personaSourceNode || !personaPreviewNode || !personaFullNode || !profileSelect || !summaryNode || !settingsForm) {
     return;
   }
 
@@ -3525,6 +3668,7 @@ function renderAiInfo() {
     personaSourceNode.textContent = "doc-ia/persona-ia-edevida.md";
     personaPreviewNode.textContent = "Sem preview da persona.";
     personaFullNode.textContent = "Sem prompt carregado.";
+    summaryNode.textContent = "Sem configuração de IA disponível.";
     return;
   }
 
@@ -3537,14 +3681,31 @@ function renderAiInfo() {
   `).join("");
 
   const models = aiInfo.models || {};
+  const modelLabels = aiInfo.model_labels || {};
   modelsNode.innerHTML = Object.entries(models).map(([key, value]) => `
     <article class="history-item">
       <header>
-        <strong>${escapeHtml(key)}</strong>
+        <strong>${escapeHtml(modelLabels[key] || key)}</strong>
         <span class="tag quality-default">${escapeHtml(String(value || "-"))}</span>
       </header>
+      <p class="muted"><code>${escapeHtml(key)}</code></p>
     </article>
   `).join("");
+
+  const profiles = Array.isArray(aiInfo.profiles) ? aiInfo.profiles : [];
+  if (profiles.length) {
+    profileSelect.innerHTML = profiles.map((profile) => `
+      <option value="${escapeHtml(profile.key)}">${escapeHtml(profile.label)}</option>
+    `).join("");
+  }
+
+  const settings = aiInfo.settings || {};
+  profileSelect.value = settings.profile || "recomendado";
+  summaryNode.textContent = settings.profile_description
+    ? `${settings.profile_label || settings.profile}: ${settings.profile_description}`
+    : "Sem descrição do perfil.";
+
+  fillAiModelInputs(models);
 
   personaSourceNode.textContent = aiInfo.persona?.source_file || "doc-ia/persona-ia-edevida.md";
   personaPreviewNode.textContent = aiInfo.persona?.preview || "Sem preview.";
@@ -3564,7 +3725,7 @@ async function loadAllData() {
   const [dashboard, profile, aiInfo, reports, measurements, measurementsAll, bioimpedance, bioimpedanceAll, exams, examsAll, hydration, workouts, nutrition, nutritionWeek] = await Promise.all([
     apiJson(`/api/dashboard/overview?${queryStringFromObject({ user_id: userId })}`),
     apiJson(`/api/profile?${queryStringFromObject({ user_id: userId })}`),
-    apiJson("/api/ai/info").catch((error) => ({ ok: false, error: error.message })),
+    apiJson(`/api/ai/info?${queryStringFromObject({ user_id: userId })}`).catch((error) => ({ ok: false, error: error.message })),
     apiJson(`/api/reports?${queryStringFromObject({ user_id: userId, period: "daily", limit: 14 })}`),
     apiJson(`/api/measurements?${queryStringFromObject({ ...common, limit: 200 })}`),
     apiJson(`/api/measurements?${queryStringFromObject({ user_id: userId, limit: 300 })}`),
@@ -4156,6 +4317,93 @@ function setupForms() {
       setStatus(`Erro no upload de exame: ${err.message}`, "error");
     }
   });
+
+  const aiSettingsForm = document.getElementById("ai-settings-form");
+  const aiProfileSelect = document.getElementById("ai-profile-select");
+  const aiSettingsSummary = document.getElementById("ai-settings-summary");
+
+  aiProfileSelect?.addEventListener("change", () => {
+    const selectedProfile = String(aiProfileSelect.value || "recomendado");
+    const profileDef = findAiProfileByKey(selectedProfile);
+    if (profileDef?.models) {
+      fillAiModelInputs(profileDef.models);
+    }
+    if (aiSettingsSummary && profileDef?.description) {
+      aiSettingsSummary.textContent = `${profileDef.label || selectedProfile}: ${profileDef.description}`;
+    }
+  });
+
+  aiSettingsForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+      const userId = await ensureUser();
+      setStatus("Salvando configuração de IA...", "info");
+
+      const formData = new FormData(aiSettingsForm);
+      const profile = String(formData.get("profile") || "recomendado");
+      const profileDef = findAiProfileByKey(profile);
+      const profileModels = profileDef?.models || {};
+      const customModels = {};
+      const modelFields = [
+        "food_text",
+        "food_vision",
+        "chat",
+        "draft_revision",
+        "exam_upload_text",
+        "exam_upload_vision",
+        "exam_followup",
+        "transcribe",
+      ];
+
+      for (const field of modelFields) {
+        const value = String(formData.get(field) || "").trim();
+        if (!value) continue;
+        if (value === String(profileModels[field] || "").trim()) continue;
+        customModels[field] = value;
+      }
+
+      const payload = await apiJson("/api/ai/settings", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          profile,
+          custom_models: customModels,
+          replace_custom: true,
+        }),
+      });
+
+      writeOutput("ai-settings-result", payload);
+      await refreshAllWithStatus("Configuração de IA salva.");
+    } catch (err) {
+      writeOutput("ai-settings-result", `Erro: ${err.message}`);
+      setStatus(`Erro ao salvar configuração da IA: ${err.message}`, "error");
+    }
+  });
+
+  const aiResetCustomBtn = document.getElementById("ai-reset-custom-btn");
+  aiResetCustomBtn?.addEventListener("click", async () => {
+    try {
+      const userId = await ensureUser();
+      const profile = String(document.getElementById("ai-profile-select")?.value || "recomendado");
+      setStatus("Limpando ajustes finos da IA...", "info");
+
+      const payload = await apiJson("/api/ai/settings", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          profile,
+          reset_custom: true,
+        }),
+      });
+
+      writeOutput("ai-settings-result", payload);
+      await refreshAllWithStatus("Ajustes finos removidos. Perfil aplicado.");
+    } catch (err) {
+      writeOutput("ai-settings-result", `Erro: ${err.message}`);
+      setStatus(`Erro ao limpar ajustes finos: ${err.message}`, "error");
+    }
+  });
 }
 
 async function boot() {
@@ -4163,6 +4411,7 @@ async function boot() {
   setupDateFilter();
   setupActions();
   setupForms();
+  setupAttachmentHistoryActions();
   renderNutritionDraftPreview();
 
   try {

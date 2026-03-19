@@ -39,6 +39,56 @@ function localToWebFileUrl(localFileUrl) {
   return `/uploads/${fileName}`;
 }
 
+function extractUploadFileName(fileUrl) {
+  const raw = String(fileUrl || "").trim();
+  if (!raw) return "";
+
+  const localPrefix = "local://temp/uploads/";
+  if (raw.startsWith(localPrefix)) {
+    return path.basename(raw.slice(localPrefix.length));
+  }
+
+  if (raw.startsWith("/uploads/")) {
+    return path.basename(raw.slice("/uploads/".length));
+  }
+
+  try {
+    const parsed = new URL(raw);
+    const pathname = parsed.pathname || "";
+    if (pathname.startsWith("/uploads/")) {
+      return path.basename(pathname.slice("/uploads/".length));
+    }
+  } catch {
+    // ignore invalid absolute URL
+  }
+
+  return "";
+}
+
+function uploadUrlToAbsolutePath(fileUrl) {
+  const fileName = extractUploadFileName(fileUrl);
+  if (!fileName) return null;
+  const uploadDir = getUploadDir();
+  const absolutePath = path.resolve(uploadDir, fileName);
+  if (!absolutePath.startsWith(uploadDir)) return null;
+  return absolutePath;
+}
+
+async function deleteUploadedFileByUrl(fileUrl) {
+  const absolutePath = uploadUrlToAbsolutePath(fileUrl);
+  if (!absolutePath) return false;
+
+  try {
+    await fs.unlink(absolutePath);
+    return true;
+  } catch (err) {
+    if (err?.code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function optimizeImageIfPossible(file) {
   if (!isImageFile(file)) {
     return {
@@ -114,4 +164,6 @@ module.exports = {
   saveUploadedFile,
   localToWebFileUrl,
   getUploadDir,
+  uploadUrlToAbsolutePath,
+  deleteUploadedFileByUrl,
 };

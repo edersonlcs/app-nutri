@@ -213,6 +213,37 @@ async function listBioimpedanceRecords(userId, { from, to, limit = 30 } = {}) {
   return data || [];
 }
 
+async function getBioimpedanceRecordById(userId, recordId) {
+  const { data, error } = await supabase
+    .from("bioimpedance_records")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", recordId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao buscar bioimpedancia: ${error.message}`);
+  }
+
+  return data || null;
+}
+
+async function deleteBioimpedanceRecord(userId, recordId) {
+  const { data, error } = await supabase
+    .from("bioimpedance_records")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", recordId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao remover bioimpedancia: ${error.message}`);
+  }
+
+  return data || null;
+}
+
 async function createMedicalExam({ userId, exam_name, exam_type, exam_date, markers, file_url, notes }) {
   const payload = {
     user_id: userId,
@@ -251,6 +282,55 @@ async function listMedicalExams(userId, { from, to, limit = 30 } = {}) {
   }
 
   return data || [];
+}
+
+async function getMedicalExamById(userId, examId) {
+  const { data, error } = await supabase
+    .from("medical_exams")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", examId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao buscar exame medico: ${error.message}`);
+  }
+
+  return data || null;
+}
+
+async function updateMedicalExam(userId, examId, updates) {
+  const payload = updates && typeof updates === "object" ? updates : {};
+
+  const { data, error } = await supabase
+    .from("medical_exams")
+    .update(payload)
+    .eq("user_id", userId)
+    .eq("id", examId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao atualizar exame medico: ${error.message}`);
+  }
+
+  return data || null;
+}
+
+async function deleteMedicalExam(userId, examId) {
+  const { data, error } = await supabase
+    .from("medical_exams")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", examId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao remover exame medico: ${error.message}`);
+  }
+
+  return data || null;
 }
 
 async function createHydrationLog({ userId, amount_ml, source = "web", notes, recorded_at }) {
@@ -385,6 +465,39 @@ async function updateNutritionEntry(userId, entryId, updates) {
   return data || null;
 }
 
+async function getUserAiSettings(userId) {
+  const profile = await getUserProfile(userId);
+  const medicalHistory = safeJsonObject(profile?.medical_history);
+  return safeJsonObject(medicalHistory.ai_settings);
+}
+
+async function saveUserAiSettings(userId, aiSettings) {
+  const profile = await getUserProfile(userId);
+  const medicalHistory = safeJsonObject(profile?.medical_history);
+  const nextMedicalHistory = {
+    ...medicalHistory,
+    ai_settings: safeJsonObject(aiSettings),
+  };
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .upsert(
+      {
+        user_id: userId,
+        medical_history: nextMedicalHistory,
+      },
+      { onConflict: "user_id" }
+    )
+    .select("medical_history")
+    .single();
+
+  if (error) {
+    throw new Error(`Erro ao salvar configuracoes de IA: ${error.message}`);
+  }
+
+  return safeJsonObject(data?.medical_history?.ai_settings);
+}
+
 module.exports = {
   parseNumeric,
   safeJsonObject,
@@ -396,8 +509,13 @@ module.exports = {
   listBodyMeasurements,
   createBioimpedanceRecord,
   listBioimpedanceRecords,
+  getBioimpedanceRecordById,
+  deleteBioimpedanceRecord,
   createMedicalExam,
   listMedicalExams,
+  getMedicalExamById,
+  updateMedicalExam,
+  deleteMedicalExam,
   createHydrationLog,
   listHydrationLogs,
   createWorkoutSession,
@@ -405,4 +523,6 @@ module.exports = {
   listNutritionEntries,
   getNutritionEntryById,
   updateNutritionEntry,
+  getUserAiSettings,
+  saveUserAiSettings,
 };

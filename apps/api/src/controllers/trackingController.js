@@ -25,8 +25,13 @@ const {
   listBodyMeasurements,
   createBioimpedanceRecord,
   listBioimpedanceRecords,
+  getBioimpedanceRecordById,
+  deleteBioimpedanceRecord,
   createMedicalExam,
   listMedicalExams,
+  getMedicalExamById,
+  updateMedicalExam,
+  deleteMedicalExam,
   createHydrationLog,
   listHydrationLogs,
   createWorkoutSession,
@@ -34,8 +39,14 @@ const {
   listNutritionEntries,
   getNutritionEntryById,
   updateNutritionEntry,
+  getUserAiSettings,
+  saveUserAiSettings,
 } = require("../services/trackingDataService");
-const { saveUploadedFile, localToWebFileUrl } = require("../services/attachmentStorageService");
+const {
+  saveUploadedFile,
+  localToWebFileUrl,
+  deleteUploadedFileByUrl,
+} = require("../services/attachmentStorageService");
 const { generateAndStoreReport, listReports } = require("../services/reportService");
 const { getDashboardOverview } = require("../services/dashboardService");
 const { getWorkoutRecommendation } = require("../services/workoutPlannerService");
@@ -50,6 +61,12 @@ const {
 } = require("../services/healthAttachmentAiService");
 const { cfg } = require("../config/env");
 const { getPersonaDocument } = require("../services/personaService");
+const {
+  MODEL_LABELS,
+  resolveAiSettingsFromProfile,
+  buildAiSettingsForStorage,
+  listAiProfiles,
+} = require("../services/aiModelConfigService");
 
 function toLimit(value, fallback = 30, max = 200) {
   const parsed = Number(value);
@@ -60,6 +77,12 @@ function toLimit(value, fallback = 30, max = 200) {
 function normalizeStoredFileUrl(fileUrl) {
   if (!fileUrl) return null;
   return localToWebFileUrl(fileUrl);
+}
+
+function extractUploadUrlFromNotes(notes) {
+  const raw = String(notes || "");
+  const match = raw.match(/(\/uploads\/[^\s|]+)/i);
+  return match ? match[1] : "";
 }
 
 function normalizeRecordedAt(value) {
@@ -247,6 +270,17 @@ function toNumberOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function safeObject(value) {
+  if (!value) return {};
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 function toIntegerOrNull(value) {
@@ -669,17 +703,25 @@ const medicalExamUploadController = asyncHandler(async (req, res) => {
   const baseExamName = req.body.exam_name || "Exame anexado";
   const baseExamType = req.body.exam_type || "anexo";
   const baseExamDate = normalizeRecordedAt(req.body.exam_date);
+  const userProfile = await getUserProfile(userId);
+  const aiSettings = resolveAiSettingsFromProfile(userProfile || null);
+  const examUploadTextModel = aiSettings?.models?.exam_upload_text || cfg.openaiModelExamText;
+  const examUploadVisionModel = aiSettings?.models?.exam_upload_vision || cfg.openaiModelExamVision;
 
   try {
     let ai = null;
 
     if (isPdfMime(storedFile.mimeType, file.originalname)) {
       const extractedText = await extractPdfText(storedFile.absolutePath);
-      ai = await analyzeMedicalExamText({ rawText: extractedText });
+      ai = await analyzeMedicalExamText({
+        rawText: extractedText,
+        modelOverride: examUploadTextModel,
+      });
     } else if (isImageMime(storedFile.mimeType, file.originalname)) {
       ai = await analyzeMedicalExamImage({
         imageBuffer: file.buffer,
         mimeType: storedFile.mimeType,
+        modelOverride: examUploadVisionModel,
       });
     } else {
       const exam = await createMedicalExam({
@@ -783,6 +825,134 @@ const medicalExamListController = asyncHandler(async (req, res) => {
   }));
 
   return res.json({ ok: true, exams: normalized });
+});
+
+const medicalExamUpdateController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const examId = String(req.params.id || "").trim();
+  if (!examId) {
+    return res.status(400).json({ ok: false, error: "id do exame obrigatorio" });
+  }
+
+  const existing = await getMedicalExamById(userId, examId);
+  if (!existing) {
+    return res.status(404).json({ ok: false, error: "Exame nao encontrado" });
+  }
+
+  const patch = {};
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "exam_name")) {
+    const value = String(req.body.exam_name || "").trim();
+    if (!value) {
+      return res.status(400).json({ ok: false, error: "exam_name nao pode ficar vazio" });
+    }
+    patch.exam_name = value;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "exam_type")) {
+    patch.exam_type = String(req.body.exam_type || "").trim() || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "exam_date")) {
+    patch.exam_date = normalizeRecordedAt(req.body.exam_date) || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "notes")) {
+    patch.notes = String(req.body.notes || "").trim() || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "file_url")) {
+    patch.file_url = normalizeStoredFileUrl(req.body.file_url);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "markers")) {
+    patch.markers = safeObject(req.body.markers);
+  }
+
+  if (!Object.keys(patch).length) {
+    return res.status(400).json({ ok: false, error: "Nenhum campo valido para atualizar" });
+  }
+
+  const exam = await updateMedicalExam(userId, examId, patch);
+  if (!exam) {
+    return res.status(404).json({ ok: false, error: "Exame nao encontrado para atualizacao" });
+  }
+
+  return res.json({
+    ok: true,
+    exam: {
+      ...exam,
+      file_url: normalizeStoredFileUrl(exam.file_url),
+    },
+  });
+});
+
+const medicalExamDeleteController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const examId = String(req.params.id || "").trim();
+  if (!examId) {
+    return res.status(400).json({ ok: false, error: "id do exame obrigatorio" });
+  }
+
+  const existing = await getMedicalExamById(userId, examId);
+  if (!existing) {
+    return res.status(404).json({ ok: false, error: "Exame nao encontrado" });
+  }
+
+  const removed = await deleteMedicalExam(userId, examId);
+  if (!removed) {
+    return res.status(404).json({ ok: false, error: "Exame nao encontrado para remocao" });
+  }
+
+  let fileDeleted = false;
+  if (existing.file_url) {
+    try {
+      fileDeleted = await deleteUploadedFileByUrl(existing.file_url);
+    } catch {
+      fileDeleted = false;
+    }
+  }
+
+  return res.json({
+    ok: true,
+    deleted: true,
+    exam_id: examId,
+    file_deleted: fileDeleted,
+  });
+});
+
+const bioimpedanceDeleteController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const recordId = String(req.params.id || "").trim();
+  if (!recordId) {
+    return res.status(400).json({ ok: false, error: "id da bioimpedancia obrigatorio" });
+  }
+
+  const existing = await getBioimpedanceRecordById(userId, recordId);
+  if (!existing) {
+    return res.status(404).json({ ok: false, error: "Bioimpedancia nao encontrada" });
+  }
+
+  const removed = await deleteBioimpedanceRecord(userId, recordId);
+  if (!removed) {
+    return res.status(404).json({ ok: false, error: "Bioimpedancia nao encontrada para remocao" });
+  }
+
+  const referencedFile = extractUploadUrlFromNotes(existing.notes);
+  let fileDeleted = false;
+  if (referencedFile) {
+    try {
+      fileDeleted = await deleteUploadedFileByUrl(referencedFile);
+    } catch {
+      fileDeleted = false;
+    }
+  }
+
+  return res.json({
+    ok: true,
+    deleted: true,
+    record_id: recordId,
+    file_deleted: fileDeleted,
+  });
 });
 
 const hydrationCreateController = asyncHandler(async (req, res) => {
@@ -1273,22 +1443,30 @@ const workoutRecommendationController = asyncHandler(async (req, res) => {
 });
 
 const aiInfoController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
   const persona = getPersonaDocument();
+  const profile = await getUserProfile(userId);
+  const storedSettings = await getUserAiSettings(userId).catch(() => ({}));
+  const resolvedAiSettings = resolveAiSettingsFromProfile(profile || null);
+  const profiles = listAiProfiles();
   const personaLines = String(persona || "")
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0);
 
   return res.json({
     ok: true,
+    user_id: userId,
     ai: {
-      models: {
-        text: cfg.openaiModelText,
-        chat: cfg.openaiModelChat,
-        vision: cfg.openaiModelVision,
-        exam_text: cfg.openaiModelExamText,
-        exam_vision: cfg.openaiModelExamVision,
-        transcribe: cfg.openaiModelTranscribe,
+      models: resolvedAiSettings.models,
+      model_labels: MODEL_LABELS,
+      settings: {
+        profile: resolvedAiSettings.profile,
+        profile_label: resolvedAiSettings.profile_label,
+        profile_description: resolvedAiSettings.profile_description,
+        custom_models: resolvedAiSettings.custom_models,
+        updated_at: resolvedAiSettings.updated_at || storedSettings.updated_at || null,
       },
+      profiles,
       persona: {
         source_file: "doc-ia/persona-ia-edevida.md",
         preview: personaLines.slice(0, 25).join("\n"),
@@ -1296,6 +1474,7 @@ const aiInfoController = asyncHandler(async (req, res) => {
       },
       capabilities: [
         "Analise nutricional por texto/foto/audio",
+        "Configuracao de perfis de IA por usuario (Economico, Recomendado, Clinico)",
         "Classificacao de qualidade da refeicao",
         "Resumo diario (agua, refeicoes, treino, calorias e exames)",
         "Visao clinica integrada (bioimpedancia + exames)",
@@ -1303,9 +1482,51 @@ const aiInfoController = asyncHandler(async (req, res) => {
       ],
       notes: [
         "Exames laboratoriais tem prioridade sobre bioimpedancia na leitura clinica.",
+        "Upload de exame usa modelo clinico forte no perfil recomendado/clinico.",
         "Resposta de chat busca ser curta, objetiva e contextualizada com seu historico.",
       ],
     },
+  });
+});
+
+const aiSettingsUpdateController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const current = safeObject(await getUserAiSettings(userId).catch(() => ({})));
+  const resetCustom = parsePersistFlag(req.body?.reset_custom, false);
+  const replaceCustom = parsePersistFlag(req.body?.replace_custom, false);
+  const bodyModels = safeObject(req.body?.models || req.body?.custom_models);
+
+  const mergedModels = resetCustom
+    ? {}
+    : replaceCustom
+      ? bodyModels
+      : {
+        ...safeObject(current.custom_models),
+        ...bodyModels,
+      };
+
+  const nextStored = buildAiSettingsForStorage({
+    profile: req.body?.profile || current.profile,
+    custom_models: mergedModels,
+  });
+
+  await saveUserAiSettings(userId, nextStored);
+  const profile = await getUserProfile(userId);
+  const resolved = resolveAiSettingsFromProfile(profile || null);
+
+  return res.json({
+    ok: true,
+    user_id: userId,
+    settings: {
+      profile: resolved.profile,
+      profile_label: resolved.profile_label,
+      profile_description: resolved.profile_description,
+      models: resolved.models,
+      custom_models: resolved.custom_models,
+      updated_at: resolved.updated_at,
+    },
+    profiles: listAiProfiles(),
+    model_labels: MODEL_LABELS,
   });
 });
 
@@ -1321,9 +1542,12 @@ module.exports = {
   bioimpedanceCreateController,
   bioimpedanceUploadController,
   bioimpedanceListController,
+  bioimpedanceDeleteController,
   medicalExamCreateController,
   medicalExamUploadController,
   medicalExamListController,
+  medicalExamUpdateController,
+  medicalExamDeleteController,
   hydrationCreateController,
   hydrationListController,
   workoutCreateController,
@@ -1337,6 +1561,7 @@ module.exports = {
   nutritionReviseDraftController,
   nutritionChatController,
   aiInfoController,
+  aiSettingsUpdateController,
   reportGenerateController,
   reportListController,
   dashboardOverviewController,
