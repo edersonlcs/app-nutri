@@ -309,6 +309,16 @@ async function analyzeImageNutrition({ imageBuffer, mimeType, caption, userConte
 
 async function transcribeAudioFile({ filePath }) {
   const absolutePath = path.resolve(filePath);
+  const extension = path.extname(absolutePath).toLowerCase();
+  let transcriptionPath = absolutePath;
+  let cleanupPath = null;
+
+  if (extension === ".oga" || extension === ".opus") {
+    transcriptionPath = absolutePath.replace(/\.(oga|opus)$/i, ".ogg");
+    await fs.promises.copyFile(absolutePath, transcriptionPath);
+    cleanupPath = transcriptionPath;
+  }
+
   const transcription = await runWithModelFallback({
     primaryModel: cfg.openaiModelTranscribe,
     fallbackModels: DEFAULT_TRANSCRIBE_FALLBACK_MODELS,
@@ -316,8 +326,12 @@ async function transcribeAudioFile({ filePath }) {
     runner: async (currentModel) =>
       openai.audio.transcriptions.create({
         model: currentModel,
-        file: fs.createReadStream(absolutePath),
+        file: fs.createReadStream(transcriptionPath),
       }),
+  }).finally(async () => {
+    if (cleanupPath) {
+      await fs.promises.unlink(cleanupPath).catch(() => {});
+    }
   });
 
   const transcriptText = transcription.text || "";
