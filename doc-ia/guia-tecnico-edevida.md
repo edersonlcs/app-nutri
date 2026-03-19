@@ -16,11 +16,16 @@ Estado atual relevante:
 - `Info` mostra bloco de uso do sistema (projeto local, banco Supabase, Storage e contagens de registros).
 - Endpoint de suporte: `GET /api/system/usage`.
 - Endpoint de anexo privado: `GET /api/files/open?file_url=...` (URL assinada sob demanda).
+- Endpoint de anexo privado tambem suporta `mode=url` para retornar URL assinada em JSON:
+  - `GET /api/files/open?file_url=...&mode=url`
 - Login web ativo com Supabase Auth:
   - `GET /api/auth/config`
   - `GET /api/auth/me`
   - Middleware de proteção em `apps/api/src/middleware/webAuthMiddleware.js`
   - Whitelist opcional de e-mail em `WEB_AUTH_ALLOWED_EMAILS` para acesso pessoal unico
+  - Limite de sessao web em horas via `WEB_AUTH_SESSION_MAX_HOURS` (atual: 12h)
+- Rota raiz redireciona para o painel:
+  - `GET /` -> `302 /painel`
 
 ## 2) Pastas principais
 
@@ -48,6 +53,14 @@ Fluxo de anexos (atual):
 3. Arquivo e salvo em Supabase Storage privado (ou fallback local).
 4. Banco salva referencia canonica (`supabase://...` ou `local://...`).
 5. Web abre arquivo por `/api/files/open`, que resolve URL assinada no momento do clique.
+6. Frontend usa `mode=url` para resolver URL assinada antes de abrir miniatura/arquivo protegido.
+
+Fluxo de foto de evolucao (atual):
+
+1. Upload cria registro em `body_measurements` com `progress_photo_url`.
+2. Card no dashboard permite exclusao direta da foto:
+   - `DELETE /api/measurements/:id`
+3. Exclusao remove registro e tenta apagar arquivo associado.
 
 Fluxo de edicao (web):
 
@@ -151,7 +164,15 @@ Variaveis de ambiente do Auth web (recomendado para uso pessoal):
 ```env
 WEB_AUTH_ENABLED=true
 WEB_AUTH_ALLOWED_EMAILS=edersonlcs@hotmail.com
+WEB_AUTH_SESSION_MAX_HOURS=12
 ```
+
+Cache web de painel (frontend):
+
+- Existe cache por sessao (sessionStorage) para reduzir recarga completa em F5.
+- Chave: `edevida_panel_cache_v1`
+- TTL atual: 5 minutos
+- Acoes de escrita (salvar/excluir) invalidam cache e forcam reload completo.
 
 ## 8) Checklist rapido pos-alteracao
 

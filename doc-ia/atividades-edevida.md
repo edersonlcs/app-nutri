@@ -172,6 +172,10 @@ Objetivo: reduzir custo depois, sem reescrever projeto.
 ### Atividade 14 - Preparar base para modulo futuro de atividade fisica
 Objetivo: deixar estrutura pronta para personal trainer + impacto na dieta.
 
+### Atividade 15 - App Android (APK pessoal)
+Objetivo: empacotar o sistema para Android com layout mobile-first, mantendo backend unico.
+Plano detalhado: `doc-ia/plano-android-edevida.md`.
+
 ---
 
 ## Controle de Progresso das Atividades
@@ -193,6 +197,7 @@ Regra de marcacao:
 - [x] Atividade 12 - Deploy na VPS (producao atual)
 - [x] Atividade 13 - Preparar migracao para Hostinger (Node hosting)
 - [x] Atividade 14 - Preparar base para modulo futuro de atividade fisica
+- [ ] Atividade 15 - App Android (APK pessoal)
 
 ---
 
@@ -269,6 +274,20 @@ Melhorias aplicadas apos uso real no web/telegram:
   - mostra sugestao de distribuicao diaria em tomadas (8-10 ao dia).
 - chat da IA mais conversacional e contextualizado com historico clinico (menos resposta engessada);
 - protecao para nao registrar hidratacao automatica fora de faixa por mensagem (anti-hallucination).
+
+## Ajustes Pos-Feedback (19/03/2026)
+
+- autenticacao web com sessao limitada por tempo (`WEB_AUTH_SESSION_MAX_HOURS`, padrao 12h no ambiente atual);
+- rota raiz ajustada para abrir direto no painel:
+  - `GET /` -> `302 /painel`;
+- anexos/fotos privadas no web com abertura assinada em JSON:
+  - `GET /api/files/open?file_url=...&mode=url`;
+- dashboard com exclusao de foto de evolucao corporal no proprio card:
+  - `DELETE /api/measurements/:id`;
+- cache de painel no frontend (sessionStorage) para reduzir recarga completa ao atualizar pagina:
+  - chave `edevida_panel_cache_v1`;
+  - TTL de 5 minutos;
+  - invalidacao automatica em acoes de escrita (salvar/excluir), mantendo consistencia dos dados.
 
 ---
 

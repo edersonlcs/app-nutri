@@ -6,6 +6,7 @@ Aplicacao pessoal para acompanhamento de nutricao, hidratacao, medidas corporais
 
 - `apps/api`: backend Node.js (Telegram + OpenAI + Supabase)
 - `apps/web`: painel web (acompanhamento)
+- `apps/android`: app Android (APK pessoal, em planejamento/implantacao)
 - `packages/shared`: itens compartilhados
 - `infra/supabase`: migrations e scripts SQL
 - `infra/deploy`: configuracoes de deploy VPS e migracao
@@ -28,6 +29,7 @@ npm run reset:test-data
 ```
 
 Guia tecnico completo: `doc-ia/guia-tecnico-edevida.md`.
+Plano Android (APK): `doc-ia/plano-android-edevida.md`.
 
 Health check:
 

@@ -70,6 +70,8 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const protectedFileAccessUrlCache = new Map();
 const PROTECTED_FILE_CACHE_TTL_MS = 8 * 60 * 1000;
 const AUTH_SESSION_STARTED_AT_KEY = "edevida_auth_started_at";
+const PANEL_CACHE_STORAGE_KEY = "edevida_panel_cache_v1";
+const PANEL_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -491,6 +493,58 @@ function queryStringFromObject(input) {
   return new URLSearchParams(compactObject(input)).toString();
 }
 
+function currentFilterKey() {
+  const fallbackDate = todayInputValue();
+  const normalized = normalizeFilterRange(state.filter.from, state.filter.to, fallbackDate);
+  return `${normalized.from}|${normalized.to}`;
+}
+
+function buildPanelCacheSnapshot(userId) {
+  return {
+    v: 1,
+    userId: String(userId || ""),
+    filterKey: currentFilterKey(),
+    cachedAt: Date.now(),
+    cache: state.cache,
+  };
+}
+
+function persistPanelCacheSnapshot(userId) {
+  if (!userId) return;
+  try {
+    const payload = buildPanelCacheSnapshot(userId);
+    window.sessionStorage.setItem(PANEL_CACHE_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage quota/browser restrictions
+  }
+}
+
+function restorePanelCacheSnapshot(userId) {
+  if (!userId) return { restored: false, ageMs: 0 };
+
+  try {
+    const raw = window.sessionStorage.getItem(PANEL_CACHE_STORAGE_KEY);
+    if (!raw) return { restored: false, ageMs: 0 };
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.v !== 1) return { restored: false, ageMs: 0 };
+    if (String(parsed.userId || "") !== String(userId)) return { restored: false, ageMs: 0 };
+    if (String(parsed.filterKey || "") !== currentFilterKey()) return { restored: false, ageMs: 0 };
+    if (!parsed.cache || typeof parsed.cache !== "object") return { restored: false, ageMs: 0 };
+
+    state.cache = {
+      ...state.cache,
+      ...parsed.cache,
+    };
+
+    const cachedAt = Number(parsed.cachedAt || 0);
+    const ageMs = Number.isFinite(cachedAt) && cachedAt > 0 ? Math.max(0, Date.now() - cachedAt) : Number.MAX_SAFE_INTEGER;
+    return { restored: true, ageMs };
+  } catch {
+    return { restored: false, ageMs: 0 };
+  }
+}
+
 function normalizeSameOriginPath(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
@@ -717,6 +771,11 @@ function enforceAuthSessionWindow(session) {
 function resetAuthContext() {
   clearProtectedFileAccessUrlCache();
   clearAuthSessionStartedAtMs();
+  try {
+    window.sessionStorage.removeItem(PANEL_CACHE_STORAGE_KEY);
+  } catch {
+    // ignore storage errors
+  }
   state.auth.session = null;
   state.auth.accessToken = "";
   state.auth.user = null;
@@ -4276,6 +4335,16 @@ function renderAiInfo() {
 
 async function loadAllData() {
   const userId = await ensureUser();
+  const restored = restorePanelCacheSnapshot(userId);
+  const hasFreshCache = restored.restored && restored.ageMs <= PANEL_CACHE_TTL_MS;
+
+  if (restored.restored) {
+    renderAllFromStateCache();
+    if (hasFreshCache) {
+      return;
+    }
+  }
+
   const filterParams = currentFilterParams();
   const currentWeek = currentWeekRangeInput();
 
@@ -4318,6 +4387,11 @@ async function loadAllData() {
   state.cache.nutrition = nutrition.nutrition || [];
   state.cache.nutritionWeek = nutritionWeek.nutrition || [];
 
+  persistPanelCacheSnapshot(userId);
+  renderAllFromStateCache();
+}
+
+function renderAllFromStateCache() {
   renderMetricCards();
   renderProfileSummary();
   renderCadastroPanel();
@@ -4333,7 +4407,7 @@ async function loadAllData() {
   renderAiInfo();
   renderCharts();
 
-  await loadTelegramWebhookInfo();
+  loadTelegramWebhookInfo().catch(() => {});
   renderTelegramInfo();
 }
 
@@ -4355,8 +4429,16 @@ function bindForm(formId, handler) {
   });
 }
 
-async function refreshAllWithStatus(successMessage = "Dados atualizados.") {
+async function refreshAllWithStatus(successMessage = "Dados atualizados.", options = {}) {
+  const forceNetwork = options.forceNetwork !== false;
   updateFilterSummary();
+  if (forceNetwork) {
+    try {
+      window.sessionStorage.removeItem(PANEL_CACHE_STORAGE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  }
   await loadAllData();
   setStatus(successMessage, "success");
 }
