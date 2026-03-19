@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/web/styles.css?v=20260318r" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260318t" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -220,6 +220,12 @@
           <h3>Detalhado de alimentação</h3>
           <div id="nutrition-details-list" class="history-list"></div>
         </article>
+
+        <article class="card nutrition-weekly-panel">
+          <h3>Análise semanal por grupo (segunda a domingo)</h3>
+          <p class="muted">Resumo fixo da semana atual, independente do filtro de data.</p>
+          <div id="nutrition-weekly-groups" class="weekly-group-grid"></div>
+        </article>
       </section>
 
       <section id="tab-cadastro" class="tab-panel">
@@ -333,6 +339,7 @@
                   <select name="mode">
                     <option value="chat">Somente conversar (sem registrar)</option>
                     <option value="draft">Analisar para rascunho (sem gravar)</option>
+                    <option value="save">Analisar e gravar (direto)</option>
                   </select>
                   <textarea
                     name="text"

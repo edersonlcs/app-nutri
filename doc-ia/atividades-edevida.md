@@ -621,6 +621,17 @@ Entregue:
   - novo comando `/rascunho` no Telegram para revisar rapidamente o rascunho antes de registrar
   - `Falar com IA` agora ativa modo conversa persistente no Telegram (sem precisar digitar `/chat` em toda mensagem), com botao `Sair do modo conversa`
   - ajuste de UX na aba `Nutricao`: quando o dia/período estiver sem refeicoes, cards de macro nao marcam `abaixo`; ficam em estado neutro `ok`
+  - hidratação por texto no web corrigida: frases como `bebi dois copos de agua` agora geram log automatico de agua (estimativa em ml)
+  - aba `Nutricao` > `Detalhado de alimentacao`: adicionado campo `Motivo:` por grupo de refeicao (cafe, almoco, janta etc.) com analise resumida do porquê do status do grupo
+  - adicionado campo `Mensagem IA:` por grupo de refeicao no detalhado, com orientação curta baseada no comportamento semanal
+  - novo bloco em `Nutricao`: `Analise semanal por grupo (segunda a domingo)`, independente do filtro de data, com status por refeicao
+  - em `Analisar alimentacao (texto)`, novo modo `Analisar e gravar (direto)` para registrar sem passar pelo rascunho
+  - reforço na regra de água: entradas de hidratação (texto) nao contam como `Refeicoes no periodo` no painel
+  - Telegram (audio): melhoria de compatibilidade para arquivos de voz (`.oga/.opus`) com fallback para transcricao em `.ogg`
+  - `Nutricao` > detalhado: cada lançamento agora pode ser editado (grupo alimentar, resumo, lista de alimentos e data/hora)
+  - feedback de confirmação reforçado: mensagens de sucesso padronizadas em `Cadastro realizado com sucesso`
+  - Telegram (`/nutricao`) passa a exibir `Motivo` por grupo de refeicao no resumo nutricional
+  - modo conversa do Telegram reforcado para comportamento de chat continuo (sem cair no fluxo de registro enquanto o modo estiver ativo)
   - script de reset para novo ciclo de testes: `npm run reset:test-data` (limpa dados do Supabase + arquivos em `temp/`)
   - documentacao tecnica de manutencao criada em `doc-ia/guia-tecnico-edevida.md`
 

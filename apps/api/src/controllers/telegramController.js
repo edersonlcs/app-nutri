@@ -489,6 +489,18 @@ function normalizeOpenAiError(err) {
     };
   }
 
+  if (
+    lowerMessage.includes("unsupported audio") ||
+    lowerMessage.includes("unsupported file format") ||
+    lowerMessage.includes("audio format")
+  ) {
+    return {
+      code: "OPENAI_INVALID_AUDIO",
+      userMessage:
+        "Nao consegui processar esse áudio no formato atual. Reenvie o áudio (de preferência mensagem de voz do Telegram) ou envie por texto.",
+    };
+  }
+
   return {
     code: "OPENAI_UNAVAILABLE",
     userMessage: "Nao consegui analisar com IA agora. Tente novamente em alguns minutos.",
@@ -866,6 +878,50 @@ function buildNutritionSignals(entries, periodDays = 1) {
   };
 }
 
+function buildTelegramMealGroupReason(slotKey, slotEntries, targets, periodDays = 1) {
+  if (!slotEntries?.length) {
+    return "sem registros deste grupo no periodo";
+  }
+
+  const ratio = TELEGRAM_MEAL_CALORIE_RATIO[slotKey] || TELEGRAM_MEAL_CALORIE_RATIO.lanche_da_manha;
+  const days = Math.max(1, Number(periodDays || 1));
+  const slotTargets = {
+    calories: Math.max(1, targets.calories * ratio * days),
+    protein: Math.max(1, targets.protein_g * ratio * days),
+    carbs: Math.max(1, targets.carbs_g * ratio * days),
+    fat: Math.max(1, targets.fat_g * ratio * days),
+  };
+
+  const slotCalories = slotEntries.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+  const slotProtein = slotEntries.reduce((acc, item) => acc + Number(item.estimated_protein_g || 0), 0);
+  const slotCarbs = slotEntries.reduce((acc, item) => acc + Number(item.estimated_carbs_g || 0), 0);
+  const slotFat = slotEntries.reduce((acc, item) => acc + Number(item.estimated_fat_g || 0), 0);
+
+  const worstQuality = slotEntries.reduce(
+    (acc, item) => pickMoreConservativeQuality(acc, item.meal_quality || "bom"),
+    "otimo"
+  );
+  const quality = qualityLabel(worstQuality);
+
+  let qualityReason = "predominio de escolhas boas";
+  if (quality === "otimo") qualityReason = "predominio de escolhas de otima qualidade";
+  if (quality === "cuidado") qualityReason = "ha escolhas que pedem ajuste de porcao";
+  if (quality === "ruim") qualityReason = "ha escolhas de baixa qualidade neste grupo";
+  if (quality === "critico") qualityReason = "ha itens criticos e vale substituir";
+
+  const alerts = [];
+  if (slotCalories > slotTargets.calories * 1.1) alerts.push("calorias acima");
+  if (slotProtein < slotTargets.protein * 0.75) alerts.push("proteina baixa");
+  if (slotCarbs > slotTargets.carbs * 1.1) alerts.push("carboidrato alto");
+  if (slotFat > slotTargets.fat * 1.1) alerts.push("gordura alta");
+
+  if (!alerts.length) {
+    return `${qualityReason}; macros dentro do esperado`;
+  }
+
+  return `${qualityReason}; atencao em ${alerts.slice(0, 2).join(" e ")}`;
+}
+
 function normalizeIntentText(value) {
   return String(value || "")
     .normalize("NFD")
@@ -1156,7 +1212,9 @@ async function buildTelegramNutritionSummary(userId) {
   const fatGoodStatus = statusByTarget(signals.totalFatGood, fatGoodTarget, "min");
   const fatBadStatus = statusByTarget(signals.totalFatBad, fatBadTarget, "max");
 
-  const grouped = Object.fromEntries(TELEGRAM_MEAL_SLOTS_CORE.map((slot) => [slot.key, { count: 0, kcal: 0, goal: 0 }]));
+  const grouped = Object.fromEntries(
+    TELEGRAM_MEAL_SLOTS_CORE.map((slot) => [slot.key, { count: 0, kcal: 0, goal: 0, entries: [] }])
+  );
   for (const slot of TELEGRAM_MEAL_SLOTS_CORE) {
     grouped[slot.key].goal = Math.round((targets.calories * (TELEGRAM_MEAL_CALORIE_RATIO[slot.key] || 0)) * periodDays);
   }
@@ -1165,6 +1223,7 @@ async function buildTelegramNutritionSummary(userId) {
     if (!grouped[slot]) continue;
     grouped[slot].count += 1;
     grouped[slot].kcal += Number(entry.estimated_calories || 0);
+    grouped[slot].entries.push(entry);
   }
 
   const workoutMinutes = workouts.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
@@ -1192,10 +1251,14 @@ async function buildTelegramNutritionSummary(userId) {
     "",
     "REFEICOES POR GRUPO",
     ...TELEGRAM_MEAL_SLOTS_CORE.map((slot) => {
-      const metric = grouped[slot.key] || { count: 0, kcal: 0, goal: 0 };
+      const metric = grouped[slot.key] || { count: 0, kcal: 0, goal: 0, entries: [] };
       const slotStatus = statusByTarget(metric.kcal, metric.goal, "max");
-      return `- ${slot.label}: ${metric.count} registro(s), ${fmtNumberBr(metric.kcal, 0)} / ${fmtNumberBr(metric.goal, 0)} kcal (${slotStatus})`;
-    }),
+      const reason = buildTelegramMealGroupReason(slot.key, metric.entries, targets, periodDays);
+      return [
+        `- ${slot.label}: ${metric.count} registro(s), ${fmtNumberBr(metric.kcal, 0)} / ${fmtNumberBr(metric.goal, 0)} kcal (${slotStatus})`,
+        `  Motivo: ${reason}`,
+      ].join("\n");
+    }).flat(),
     "",
     "HIDRATACAO E TREINO",
     `- Agua: ${fmtNumberBr(hydrationTotal, 0)} / ${fmtNumberBr(hydrationGoal, 0)} ml (${fmtNumberBr(hydrationPct, 1)}%)`,
@@ -1685,6 +1748,25 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
       }
     }
 
+    if (chatModeActive && !draftAction && parseChatCommand(rawText) === null) {
+      try {
+        await runChatMode({
+          appUser,
+          text: rawText,
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          persistentMode: true,
+        });
+        return res.json({ ok: true, handled: "chat_persistent" });
+      } catch (err) {
+        const aiError = normalizeOpenAiError(err);
+        await safeReply(message.chat.id, aiError.userMessage, message.message_id, {
+          reply_markup: buildTelegramChatKeyboard(),
+        });
+        return res.json({ ok: true, handled: "chat_persistent", analyzed: false, reason: aiError.code });
+      }
+    }
+
     const activeDraft = getNutritionDraft(appUser.id, message.chat.id);
 
     if (draftAction?.type === "correction_help") {
@@ -1750,25 +1832,6 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
       }
     }
 
-    if (chatModeActive && !draftAction && parseChatCommand(rawText) === null) {
-      try {
-        await runChatMode({
-          appUser,
-          text: rawText,
-          chatId: message.chat.id,
-          replyToMessageId: message.message_id,
-          persistentMode: true,
-        });
-        return res.json({ ok: true, handled: "chat_persistent" });
-      } catch (err) {
-        const aiError = normalizeOpenAiError(err);
-        await safeReply(message.chat.id, aiError.userMessage, message.message_id, {
-          reply_markup: buildTelegramChatKeyboard(),
-        });
-        return res.json({ ok: true, handled: "chat_persistent", analyzed: false, reason: aiError.code });
-      }
-    }
-
     if (shouldUseChatMode(rawText)) {
       try {
         await runChatMode({
@@ -1804,7 +1867,7 @@ const telegramWebhookController = asyncHandler(async (req, res) => {
         clearNutritionDraft(appUser.id, message.chat.id);
         await safeReply(
           message.chat.id,
-          "Refeicao registrada com sucesso. Quando quiser, envie nova foto/texto para o proximo registro.",
+          "Cadastro realizado com sucesso: refeição registrada. Quando quiser, envie nova foto/texto para o próximo registro.",
           message.message_id
         );
         return res.json({ ok: true, handled: "draft_register" });

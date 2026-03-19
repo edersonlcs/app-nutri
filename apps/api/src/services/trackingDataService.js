@@ -352,6 +352,39 @@ async function listNutritionEntries(userId, { from, to, limit = 50 } = {}) {
   return data || [];
 }
 
+async function getNutritionEntryById(userId, entryId) {
+  const { data, error } = await supabase
+    .from("nutrition_entries")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", entryId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao buscar refeicao: ${error.message}`);
+  }
+
+  return data || null;
+}
+
+async function updateNutritionEntry(userId, entryId, updates) {
+  const payload = updates && typeof updates === "object" ? updates : {};
+
+  const { data, error } = await supabase
+    .from("nutrition_entries")
+    .update(payload)
+    .eq("user_id", userId)
+    .eq("id", entryId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Erro ao atualizar refeicao: ${error.message}`);
+  }
+
+  return data || null;
+}
+
 module.exports = {
   parseNumeric,
   safeJsonObject,
@@ -370,4 +403,6 @@ module.exports = {
   createWorkoutSession,
   listWorkoutSessions,
   listNutritionEntries,
+  getNutritionEntryById,
+  updateNutritionEntry,
 };

@@ -32,6 +32,8 @@ const {
   createWorkoutSession,
   listWorkoutSessions,
   listNutritionEntries,
+  getNutritionEntryById,
+  updateNutritionEntry,
 } = require("../services/trackingDataService");
 const { saveUploadedFile, localToWebFileUrl } = require("../services/attachmentStorageService");
 const { generateAndStoreReport, listReports } = require("../services/reportService");
@@ -101,12 +103,107 @@ function sanitizeWaterIntakePerMessage(value) {
   return Math.round(parsed);
 }
 
-function hasExplicitWaterAmount(text) {
+const PT_NUMBER_WORDS = {
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  três: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  quatorze: 14,
+  catorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezasseis: 16,
+  dezessete: 17,
+  dezoito: 18,
+  dezenove: 19,
+  vinte: 20,
+};
+
+function parsePtNumericToken(rawToken) {
+  const token = String(rawToken || "")
+    .trim()
+    .toLowerCase();
+
+  if (!token) return null;
+
+  const numeric = Number(token.replace(",", "."));
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+
+  return PT_NUMBER_WORDS[token] || null;
+}
+
+function extractWaterAmountMlFromText(text) {
   const value = String(text || "").toLowerCase();
-  if (!value) return false;
+  if (!value) return 0;
+
   const hasWaterWord = value.includes("agua") || value.includes("água");
-  const hasAmount = /\b\d+(?:[.,]\d+)?\s?(ml|l|litro|litros)\b/.test(value);
-  return hasWaterWord && hasAmount;
+  if (!hasWaterWord) return 0;
+
+  const explicitMatch = value.match(/\b(\d+(?:[.,]\d+)?)\s?(ml|l|litro|litros)\b/);
+  if (explicitMatch) {
+    const amount = Number(explicitMatch[1].replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    const unit = explicitMatch[2];
+    if (unit === "ml") return Math.round(amount);
+    return Math.round(amount * 1000);
+  }
+
+  const cupMatch = value.match(/\b([\p{L}\d.,]+)\s+(copo|copos|xicara|xicaras|xícara|xícaras)\b/u);
+  if (cupMatch) {
+    const qty = parsePtNumericToken(cupMatch[1]);
+    if (!qty || !Number.isFinite(qty)) return 0;
+    return Math.round(qty * 250);
+  }
+
+  return 0;
+}
+
+function hasExplicitWaterAmount(text) {
+  return extractWaterAmountMlFromText(text) > 0;
+}
+
+function normalizeSimpleText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isPureWaterFoodName(name) {
+  const normalized = normalizeSimpleText(name).replace(/\s+/g, " ");
+  return ["agua", "agua mineral", "water"].includes(normalized);
+}
+
+function isWaterOnlyAnalysis(rawInputText, normalizedAnalysis) {
+  const waterMlFromText = extractWaterAmountMlFromText(rawInputText);
+  if (waterMlFromText <= 0) return false;
+
+  const calories = Number(normalizedAnalysis?.estimated_calories || 0);
+  const foodItems = Array.isArray(normalizedAnalysis?.food_items) ? normalizedAnalysis.food_items : [];
+  const hasNonWaterItem = foodItems.some((item) => {
+    const name = normalizeSimpleText(item?.food_name || "");
+    if (!name) return false;
+    return !isPureWaterFoodName(name);
+  });
+
+  const waterFromAnalysis = Number(normalizedAnalysis?.water_intake_ml || 0);
+  const effectiveWater = Math.max(waterMlFromText, Number.isFinite(waterFromAnalysis) ? waterFromAnalysis : 0);
+  if (!effectiveWater) return false;
+
+  return calories <= 80 && !hasNonWaterItem;
 }
 
 function normalizeInputType(value) {
@@ -214,27 +311,31 @@ async function persistNutritionFromAnalysis({
   extraAiPayload,
 }) {
   const normalizedAnalysis = normalizeDraftAnalysis(analysis);
+  const waterOnly = isWaterOnlyAnalysis(rawInputText, normalizedAnalysis);
   const mergedAiPayload = {
     ...normalizedAnalysis,
+    water_only: waterOnly,
     ...(extraAiPayload && typeof extraAiPayload === "object" ? extraAiPayload : {}),
   };
-
-  const nutrition = await saveNutritionEntry({
-    user_id: userId,
-    input_type: normalizeInputType(inputType),
-    source: normalizeSource(source),
-    raw_input_text: rawInputText || "[registro web sem texto]",
-    analyzed_summary: normalizedAnalysis.summary || null,
-    meal_quality: normalizedAnalysis.quality || null,
-    recommended_action: normalizedAnalysis.action_now || null,
-    estimated_calories: normalizedAnalysis.estimated_calories ?? null,
-    estimated_protein_g: normalizedAnalysis.protein_g ?? null,
-    estimated_carbs_g: normalizedAnalysis.carbs_g ?? null,
-    estimated_fat_g: normalizedAnalysis.fat_g ?? null,
-    water_ml_recommended: normalizedAnalysis.water_recommended_ml ?? null,
-    recorded_at: recordedAt || undefined,
-    ai_payload: mergedAiPayload,
-  });
+  let nutrition = null;
+  if (!waterOnly) {
+    nutrition = await saveNutritionEntry({
+      user_id: userId,
+      input_type: normalizeInputType(inputType),
+      source: normalizeSource(source),
+      raw_input_text: rawInputText || "[registro web sem texto]",
+      analyzed_summary: normalizedAnalysis.summary || null,
+      meal_quality: normalizedAnalysis.quality || null,
+      recommended_action: normalizedAnalysis.action_now || null,
+      estimated_calories: normalizedAnalysis.estimated_calories ?? null,
+      estimated_protein_g: normalizedAnalysis.protein_g ?? null,
+      estimated_carbs_g: normalizedAnalysis.carbs_g ?? null,
+      estimated_fat_g: normalizedAnalysis.fat_g ?? null,
+      water_ml_recommended: normalizedAnalysis.water_recommended_ml ?? null,
+      recorded_at: recordedAt || undefined,
+      ai_payload: mergedAiPayload,
+    });
+  }
 
   await saveAiInteraction({
     user_id: userId,
@@ -246,8 +347,13 @@ async function persistNutritionFromAnalysis({
   }).catch(() => {});
 
   let safeWaterIntakeMl = sanitizeWaterIntakePerMessage(normalizedAnalysis.water_intake_ml);
-  if ((inputType === "text" || inputType === "audio") && !hasExplicitWaterAmount(rawInputText)) {
-    safeWaterIntakeMl = 0;
+  if (inputType === "text" || inputType === "audio") {
+    const parsedWaterMl = extractWaterAmountMlFromText(rawInputText);
+    if (parsedWaterMl > 0) {
+      safeWaterIntakeMl = sanitizeWaterIntakePerMessage(parsedWaterMl);
+    } else if (!hasExplicitWaterAmount(rawInputText)) {
+      safeWaterIntakeMl = 0;
+    }
   }
 
   if (safeWaterIntakeMl > 0) {
@@ -260,7 +366,12 @@ async function persistNutritionFromAnalysis({
     }).catch(() => {});
   }
 
-  return nutrition;
+  return {
+    nutrition,
+    nutritionSaved: Boolean(nutrition),
+    waterOnly,
+    waterLoggedMl: safeWaterIntakeMl,
+  };
 }
 
 async function resolveRequestUserId(req) {
@@ -724,6 +835,103 @@ const nutritionListController = asyncHandler(async (req, res) => {
   return res.json({ ok: true, nutrition });
 });
 
+function sumFoodItemsFieldIfPresent(items, fieldName, digits = 1) {
+  const safeItems = Array.isArray(items) ? items : [];
+  let hasAny = false;
+  let sum = 0;
+
+  for (const item of safeItems) {
+    const value = toNumberOrNull(item?.[fieldName]);
+    if (value === null) continue;
+    hasAny = true;
+    sum += value;
+  }
+
+  if (!hasAny) return null;
+  return Number(sum.toFixed(digits));
+}
+
+const nutritionUpdateController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const entryId = String(req.params.id || "").trim();
+  if (!entryId) {
+    return res.status(400).json({ ok: false, error: "id do lançamento obrigatório" });
+  }
+
+  const existing = await getNutritionEntryById(userId, entryId);
+  if (!existing) {
+    return res.status(404).json({ ok: false, error: "Lançamento não encontrado" });
+  }
+
+  const patch = {};
+  const currentPayload = existing.ai_payload && typeof existing.ai_payload === "object" ? existing.ai_payload : {};
+  const nextPayload = { ...currentPayload };
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "meal_slot")) {
+    nextPayload.meal_slot = normalizeMealSlot(req.body.meal_slot);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "summary")) {
+    const summary = String(req.body.summary || "").trim();
+    patch.analyzed_summary = summary || null;
+    nextPayload.summary = summary || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "raw_input_text")) {
+    const rawInputText = String(req.body.raw_input_text || "").trim();
+    patch.raw_input_text = rawInputText || existing.raw_input_text;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "recommended_action")) {
+    patch.recommended_action = String(req.body.recommended_action || "").trim() || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "meal_quality")) {
+    const quality = String(req.body.meal_quality || "").toLowerCase().trim();
+    patch.meal_quality = FOOD_QUALITY_VALUES.includes(quality) ? quality : existing.meal_quality;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "recorded_at")) {
+    patch.recorded_at = normalizeRecordedAt(req.body.recorded_at) || existing.recorded_at;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "food_items")) {
+    const normalizedItems = normalizeDraftAnalysis({ food_items: req.body.food_items }).food_items;
+    nextPayload.food_items = normalizedItems;
+
+    const calories = sumFoodItemsFieldIfPresent(normalizedItems, "estimated_calories", 1);
+    const protein = sumFoodItemsFieldIfPresent(normalizedItems, "protein_g", 1);
+    const carbs = sumFoodItemsFieldIfPresent(normalizedItems, "carbs_g", 1);
+    const fat = sumFoodItemsFieldIfPresent(normalizedItems, "fat_g", 1);
+    const sodium = sumFoodItemsFieldIfPresent(normalizedItems, "sodium_mg", 0);
+    const sugar = sumFoodItemsFieldIfPresent(normalizedItems, "sugar_g", 1);
+    const fatGood = sumFoodItemsFieldIfPresent(normalizedItems, "fat_good_g", 1);
+    const fatBad = sumFoodItemsFieldIfPresent(normalizedItems, "fat_bad_g", 1);
+
+    if (calories !== null) patch.estimated_calories = calories;
+    if (protein !== null) patch.estimated_protein_g = protein;
+    if (carbs !== null) patch.estimated_carbs_g = carbs;
+    if (fat !== null) patch.estimated_fat_g = fat;
+    if (sodium !== null) nextPayload.sodium_mg = sodium;
+    if (sugar !== null) nextPayload.sugar_g = sugar;
+    if (fatGood !== null) nextPayload.fat_good_g = fatGood;
+    if (fatBad !== null) nextPayload.fat_bad_g = fatBad;
+  }
+
+  patch.ai_payload = nextPayload;
+
+  if (!Object.keys(patch).length) {
+    return res.status(400).json({ ok: false, error: "Nenhum campo válido para atualizar" });
+  }
+
+  const updated = await updateNutritionEntry(userId, entryId, patch);
+  if (!updated) {
+    return res.status(404).json({ ok: false, error: "Lançamento não encontrado para atualização" });
+  }
+
+  return res.json({ ok: true, nutrition: updated });
+});
+
 const nutritionTextAnalyzeController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
   const { text } = req.body;
@@ -744,7 +952,10 @@ const nutritionTextAnalyzeController = asyncHandler(async (req, res) => {
     return res.json({
       ok: true,
       analyzed: true,
-      persisted: persist,
+      persisted: persist ? Boolean(result.nutritionSaved || (result.waterLoggedMl || 0) > 0) : false,
+      nutrition_saved: persist ? Boolean(result.nutritionSaved) : false,
+      water_only: Boolean(result.waterOnly),
+      water_logged_ml: Number(result.waterLoggedMl || 0),
       quality: result.analysis.quality,
       analysis: result.analysis,
       replyText: result.replyText,
@@ -904,7 +1115,7 @@ const nutritionRegisterDraftController = asyncHandler(async (req, res) => {
   const rawResponse = String(req.body?.raw_response || "").trim();
   const recordedAt = normalizeRecordedAt(req.body?.recorded_at);
 
-  const nutrition = await persistNutritionFromAnalysis({
+  const result = await persistNutritionFromAnalysis({
     userId,
     analysis: normalizedAnalysis,
     rawInputText: rawInputText || normalizedAnalysis.summary || "[rascunho sem texto base]",
@@ -922,7 +1133,10 @@ const nutritionRegisterDraftController = asyncHandler(async (req, res) => {
   return res.status(201).json({
     ok: true,
     persisted: true,
-    nutrition,
+    nutrition: result.nutrition,
+    nutrition_saved: result.nutritionSaved,
+    water_only: result.waterOnly,
+    water_logged_ml: result.waterLoggedMl,
     analysis: normalizedAnalysis,
     replyText: formatNutritionReply(normalizedAnalysis),
   });
@@ -1115,6 +1329,7 @@ module.exports = {
   workoutCreateController,
   workoutListController,
   nutritionListController,
+  nutritionUpdateController,
   nutritionTextAnalyzeController,
   nutritionImageAnalyzeController,
   nutritionAudioAnalyzeController,

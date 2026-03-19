@@ -23,7 +23,10 @@ function getLargestPhoto(photoList) {
 
 function inferExtension(filePathValue, contentType) {
   const fromPath = path.extname(filePathValue || "").toLowerCase();
-  if (fromPath) return fromPath;
+  if (fromPath) {
+    if (fromPath === ".oga" || fromPath === ".opus") return ".ogg";
+    return fromPath;
+  }
 
   const normalizedType = String(contentType || "").toLowerCase();
   if (normalizedType.includes("ogg")) return ".ogg";
@@ -103,13 +106,103 @@ function sanitizeWaterIntakePerMessage(value) {
   return Math.round(parsed);
 }
 
-function hasExplicitWaterAmount(text) {
+const PT_NUMBER_WORDS = {
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  três: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  quatorze: 14,
+  catorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezasseis: 16,
+  dezessete: 17,
+  dezoito: 18,
+  dezenove: 19,
+  vinte: 20,
+};
+
+function parsePtNumericToken(rawToken) {
+  const token = String(rawToken || "")
+    .trim()
+    .toLowerCase();
+  if (!token) return null;
+
+  const numeric = Number(token.replace(",", "."));
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  return PT_NUMBER_WORDS[token] || null;
+}
+
+function extractWaterAmountMlFromText(text) {
   const value = String(text || "").toLowerCase();
-  if (!value) return false;
+  if (!value) return 0;
 
   const hasWaterWord = value.includes("agua") || value.includes("água");
-  const hasAmount = /\b\d+(?:[.,]\d+)?\s?(ml|l|litro|litros)\b/.test(value);
-  return hasWaterWord && hasAmount;
+  if (!hasWaterWord) return 0;
+
+  const explicitMatch = value.match(/\b(\d+(?:[.,]\d+)?)\s?(ml|l|litro|litros)\b/);
+  if (explicitMatch) {
+    const amount = Number(explicitMatch[1].replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return explicitMatch[2] === "ml" ? Math.round(amount) : Math.round(amount * 1000);
+  }
+
+  const cupMatch = value.match(/\b([\p{L}\d.,]+)\s+(copo|copos|xicara|xicaras|xícara|xícaras)\b/u);
+  if (cupMatch) {
+    const qty = parsePtNumericToken(cupMatch[1]);
+    if (!qty || !Number.isFinite(qty)) return 0;
+    return Math.round(qty * 250);
+  }
+
+  return 0;
+}
+
+function hasExplicitWaterAmount(text) {
+  return extractWaterAmountMlFromText(text) > 0;
+}
+
+function normalizeSimpleText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isPureWaterFoodName(name) {
+  const normalized = normalizeSimpleText(name).replace(/\s+/g, " ");
+  return ["agua", "agua mineral", "water"].includes(normalized);
+}
+
+function isWaterOnlyAnalysis(parsed, rawInputText) {
+  const waterMlFromText = extractWaterAmountMlFromText(rawInputText);
+  if (waterMlFromText <= 0) return false;
+
+  const calories = Number(parsed?.estimated_calories || 0);
+  const items = Array.isArray(parsed?.food_items) ? parsed.food_items : [];
+  const hasNonWaterItem = items.some((item) => {
+    const name = normalizeSimpleText(item?.food_name || "");
+    if (!name) return false;
+    return !isPureWaterFoodName(name);
+  });
+
+  const waterFromAnalysis = Number(parsed?.water_intake_ml || 0);
+  const effectiveWater = Math.max(waterMlFromText, Number.isFinite(waterFromAnalysis) ? waterFromAnalysis : 0);
+  if (!effectiveWater) return false;
+
+  return calories <= 80 && !hasNonWaterItem;
 }
 
 async function ensureRuntimeTempDir() {
@@ -147,21 +240,26 @@ async function persistAnalysis({
     };
   }
 
-  await saveNutritionEntry({
-    user_id: appUser.id,
-    input_type: inputType,
-    source,
-    raw_input_text: rawInputText,
-    analyzed_summary: parsed.summary,
-    meal_quality: parsed.quality,
-    recommended_action: parsed.action_now,
-    estimated_calories: parsed.estimated_calories,
-    estimated_protein_g: parsed.protein_g,
-    estimated_carbs_g: parsed.carbs_g,
-    estimated_fat_g: parsed.fat_g,
-    water_ml_recommended: parsed.water_recommended_ml,
-    ai_payload: mergedAiPayload,
-  });
+  const waterOnly = isWaterOnlyAnalysis(parsed, rawInputText);
+  mergedAiPayload.water_only = waterOnly;
+
+  if (!waterOnly) {
+    await saveNutritionEntry({
+      user_id: appUser.id,
+      input_type: inputType,
+      source,
+      raw_input_text: rawInputText,
+      analyzed_summary: parsed.summary,
+      meal_quality: parsed.quality,
+      recommended_action: parsed.action_now,
+      estimated_calories: parsed.estimated_calories,
+      estimated_protein_g: parsed.protein_g,
+      estimated_carbs_g: parsed.carbs_g,
+      estimated_fat_g: parsed.fat_g,
+      water_ml_recommended: parsed.water_recommended_ml,
+      ai_payload: mergedAiPayload,
+    });
+  }
 
   await saveAiInteraction({
     user_id: appUser.id,
@@ -173,8 +271,13 @@ async function persistAnalysis({
   });
 
   let safeWaterIntakeMl = sanitizeWaterIntakePerMessage(parsed.water_intake_ml);
-  if ((inputType === "text" || inputType === "audio") && !hasExplicitWaterAmount(rawInputText)) {
-    safeWaterIntakeMl = 0;
+  if (inputType === "text" || inputType === "audio") {
+    const parsedWaterMl = extractWaterAmountMlFromText(rawInputText);
+    if (parsedWaterMl > 0) {
+      safeWaterIntakeMl = sanitizeWaterIntakePerMessage(parsedWaterMl);
+    } else if (!hasExplicitWaterAmount(rawInputText)) {
+      safeWaterIntakeMl = 0;
+    }
   }
   if (safeWaterIntakeMl > 0) {
     await saveHydrationLog({
@@ -188,6 +291,9 @@ async function persistAnalysis({
   return {
     analysis: parsed,
     replyText: formatNutritionReply(parsed),
+    waterOnly,
+    waterLoggedMl: safeWaterIntakeMl,
+    nutritionSaved: !waterOnly,
   };
 }
 
@@ -267,7 +373,28 @@ async function processAudioBufferInput({
 
   try {
     const userContext = await getUserContext(appUser.id);
-    const transcription = await transcribeAudioFile({ filePath: tempFilePath });
+    let transcription = null;
+    try {
+      transcription = await transcribeAudioFile({ filePath: tempFilePath });
+    } catch (err) {
+      const errorText = String(err?.message || "").toLowerCase();
+      const shouldRetryAsOgg =
+        extension !== ".ogg" &&
+        (errorText.includes("unsupported") ||
+          errorText.includes("invalid file format") ||
+          errorText.includes("audio format"));
+
+      if (!shouldRetryAsOgg) throw err;
+
+      const retryFilePath = path.join(runtimeTempDir, `${randomUUID()}.ogg`);
+      await fs.copyFile(tempFilePath, retryFilePath);
+      try {
+        transcription = await transcribeAudioFile({ filePath: retryFilePath });
+      } finally {
+        await fs.unlink(retryFilePath).catch(() => {});
+      }
+    }
+
     const { parsed, modelUsed, rawResponse } = await analyzeTextNutrition(
       transcription.transcriptText,
       userContext

@@ -25,6 +25,7 @@ const state = {
     hydration: [],
     workouts: [],
     nutrition: [],
+    nutritionWeek: [],
     telegramWebhook: null,
   },
   nutritionDraft: null,
@@ -180,6 +181,17 @@ function currentDateTimeLocalValue() {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function toDateTimeLocalInput(value) {
+  const parsed = parseDateForDisplay(value);
+  if (!parsed) return "";
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const hours = String(parsed.getHours()).padStart(2, "0");
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function dateToInputValue(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -193,6 +205,22 @@ function shiftDateInputValue(value, days = 0) {
   const shifted = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
   shifted.setDate(shifted.getDate() + Number(days || 0));
   return dateToInputValue(shifted);
+}
+
+function currentWeekRangeInput() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const day = start.getDay(); // 0-dom, 1-seg
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diffToMonday);
+
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  end.setDate(start.getDate() + 6);
+
+  return {
+    from: dateToInputValue(start),
+    to: dateToInputValue(end),
+  };
 }
 
 function normalizeFilterRange(fromValue, toValue, fallbackDate = todayInputValue()) {
@@ -554,8 +582,9 @@ function renderMetricCards() {
     (acc, item) => acc + Number(item.amount_ml || 0),
     0
   );
-  const filteredNutritionCount = (state.cache.nutrition || []).length;
-  const filteredCaloriesTotal = (state.cache.nutrition || []).reduce(
+  const filteredMealEntries = mealNutritionEntries(state.cache.nutrition || []);
+  const filteredNutritionCount = filteredMealEntries.length;
+  const filteredCaloriesTotal = filteredMealEntries.reduce(
     (acc, item) => acc + Number(item.estimated_calories || 0),
     0
   );
@@ -564,7 +593,7 @@ function renderMetricCards() {
     (acc, item) => acc + Number(item.duration_minutes || 0),
     0
   );
-  const latestFilteredNutrition = state.cache.nutrition[0] || null;
+  const latestFilteredNutrition = filteredMealEntries[0] || null;
   const dailyCalorieGoal = Number(overview?.today?.nutrition_calories_goal_kcal || 2200);
 
   if (hasActiveDateFilter()) {
@@ -588,14 +617,14 @@ function renderMetricCards() {
     if (!overview) return;
 
     waterNode.textContent = `${fmtNumber(overview.today.hydration_total_ml, 0)} ml`;
-    const caloriesTotal = Number(overview.today.nutrition_calories_total_kcal || 0);
+    const caloriesTotal = filteredCaloriesTotal;
     const caloriesGoal = Number(overview.today.nutrition_calories_goal_kcal || dailyCalorieGoal || 2200);
     mealsNode.textContent = `${fmtNumber(caloriesTotal, 0)} / ${fmtNumber(caloriesGoal, 0)} kcal`;
     if (mealsSubNode) {
-      mealsSubNode.textContent = `${Number(overview.today.nutrition_count || 0)} refeições hoje`;
+      mealsSubNode.textContent = `${filteredNutritionCount} refeições hoje`;
     }
 
-    const quality = overview.today.latest_nutrition?.meal_quality || "sem registro";
+    const quality = latestFilteredNutrition?.meal_quality || "sem registro";
     qualityNode.textContent = qualityLabel(quality);
     qualityNode.className = `metric-sub tag ${qualityClass(quality)}`;
 
@@ -1112,6 +1141,96 @@ function hasAnyKeyword(text, keywords) {
   return keywords.some((keyword) => normalized.includes(keyword));
 }
 
+const PT_NUMBER_WORDS = {
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  três: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  quatorze: 14,
+  catorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezassete: 17,
+  dezessete: 17,
+  dezoito: 18,
+  dezenove: 19,
+  vinte: 20,
+};
+
+function parsePtNumericToken(value) {
+  const token = String(value || "").trim().toLowerCase();
+  if (!token) return null;
+
+  const numeric = Number(token.replace(",", "."));
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  return PT_NUMBER_WORDS[token] || null;
+}
+
+function extractWaterAmountMlFromText(text) {
+  const value = String(text || "").toLowerCase();
+  if (!value) return 0;
+
+  const hasWaterWord = value.includes("agua") || value.includes("água");
+  if (!hasWaterWord) return 0;
+
+  const explicitMatch = value.match(/\b(\d+(?:[.,]\d+)?)\s?(ml|l|litro|litros)\b/);
+  if (explicitMatch) {
+    const amount = Number(explicitMatch[1].replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return explicitMatch[2] === "ml" ? Math.round(amount) : Math.round(amount * 1000);
+  }
+
+  const cupMatch = value.match(/\b([\p{L}\d.,]+)\s+(copo|copos|xicara|xicaras|xícara|xícaras)\b/u);
+  if (cupMatch) {
+    const qty = parsePtNumericToken(cupMatch[1]);
+    if (!qty || !Number.isFinite(qty)) return 0;
+    return Math.round(qty * 250);
+  }
+
+  return 0;
+}
+
+function isWaterOnlyNutritionEntry(entry) {
+  const payload = entry?.ai_payload && typeof entry.ai_payload === "object" ? entry.ai_payload : {};
+  if (payload?.water_only === true) return true;
+
+  const rawText = [entry?.raw_input_text || "", entry?.analyzed_summary || ""].join(" | ");
+  const waterMl = extractWaterAmountMlFromText(rawText);
+  const payloadWaterMl = Number(payload?.water_intake_ml || 0);
+  const effectiveWaterMl = Math.max(waterMl, Number.isFinite(payloadWaterMl) ? payloadWaterMl : 0);
+  if (!effectiveWaterMl) return false;
+
+  const calories = Number(payload?.estimated_calories || entry?.estimated_calories || 0);
+  const foods = extractFoodItems(entry);
+  const isPureWaterName = (value) => {
+    const normalized = normalizeMarkerName(value).replace(/\s+/g, " ").trim();
+    return ["agua", "agua mineral", "water"].includes(normalized);
+  };
+  const hasNonWaterItem = foods.some((item) => {
+    const name = normalizeMarkerName(item.food_name || "");
+    if (!name) return false;
+    return !isPureWaterName(name);
+  });
+
+  return calories <= 80 && !hasNonWaterItem;
+}
+
+function mealNutritionEntries(entries) {
+  return (entries || []).filter((entry) => !isWaterOnlyNutritionEntry(entry));
+}
+
 function detectDietRiskSignals(entry) {
   const foods = extractFoodItems(entry);
   const joined = [
@@ -1265,6 +1384,51 @@ function mealTextPreview(entry) {
 
 function mealSlotLabel(slot) {
   return MEAL_SLOTS.find((item) => item.key === slot)?.label || "Outro";
+}
+
+function mealSlotOptionsHtml(selectedSlot) {
+  const normalizedSelected = MEAL_SLOTS.some((item) => item.key === selectedSlot) ? selectedSlot : "outro";
+  return MEAL_SLOTS.map((slot) => `
+    <option value="${slot.key}"${slot.key === normalizedSelected ? " selected" : ""}>${escapeHtml(slot.label)}</option>
+  `).join("");
+}
+
+function serializeFoodItemsForEditor(foodItems) {
+  const items = Array.isArray(foodItems) ? foodItems : [];
+  if (!items.length) return "";
+  return items
+    .map((item) => {
+      const name = String(item?.food_name || "").trim();
+      const portion = String(item?.portion || "").trim();
+      if (!name && !portion) return "";
+      if (!portion) return name;
+      return `${name} | ${portion}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseFoodItemsEditorText(rawValue) {
+  const lines = String(rawValue || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines
+    .map((line) => {
+      const [namePart, portionPart] = line.split("|");
+      const foodName = String(namePart || "").trim();
+      if (!foodName) return null;
+
+      const portion = String(portionPart || "porção ajustada manualmente").trim();
+      return {
+        food_name: foodName,
+        portion,
+        quality: "bom",
+        reason: "item ajustado manualmente",
+      };
+    })
+    .filter(Boolean);
 }
 
 function inferMealSlotByTime(dateValue) {
@@ -1821,11 +1985,12 @@ function renderDailyComparison() {
   const overview = state.cache.dashboard?.overview || {};
   const hydrationGoal = Number(overview?.today?.hydration_goal_ml || 3000);
   const hydrationTotal = (state.cache.hydration || []).reduce((acc, item) => acc + Number(item.amount_ml || 0), 0);
-  const nutritionCount = (state.cache.nutrition || []).length;
+  const mealEntries = mealNutritionEntries(state.cache.nutrition || []);
+  const nutritionCount = mealEntries.length;
   const workoutSessions = state.cache.workouts || [];
   const workoutMinutes = workoutSessions.reduce((acc, item) => acc + Number(item.duration_minutes || 0), 0);
   const latestQuality =
-    state.cache.nutrition[0]?.meal_quality || overview?.today?.latest_nutrition?.meal_quality || "sem registro";
+    mealEntries[0]?.meal_quality || overview?.today?.latest_nutrition?.meal_quality || "sem registro";
 
   const waterRatio = hydrationGoal > 0 ? hydrationTotal / hydrationGoal : 0;
   const mealsRatio = Math.min(1, nutritionCount / 4);
@@ -1940,15 +2105,84 @@ function renderWorkoutInsights() {
   `;
 }
 
+function bindNutritionEntryEditEvents(container) {
+  if (!container || container.dataset.editBound === "1") return;
+  container.dataset.editBound = "1";
+
+  container.addEventListener("click", (event) => {
+    const toggleButton = event.target.closest(".nutrition-edit-toggle");
+    if (toggleButton) {
+      const form = toggleButton.parentElement?.querySelector(".nutrition-edit-form");
+      if (!form) return;
+      form.classList.toggle("is-hidden");
+      toggleButton.textContent = form.classList.contains("is-hidden") ? "Editar lançamento" : "Fechar edição";
+      return;
+    }
+
+    const cancelButton = event.target.closest(".nutrition-edit-cancel");
+    if (cancelButton) {
+      const form = cancelButton.closest(".nutrition-edit-form");
+      if (!form) return;
+      const wrapper = form.parentElement;
+      form.classList.add("is-hidden");
+      const toggle = wrapper?.querySelector(".nutrition-edit-toggle");
+      if (toggle) toggle.textContent = "Editar lançamento";
+    }
+  });
+
+  container.addEventListener("submit", async (event) => {
+    const form = event.target.closest(".nutrition-edit-form");
+    if (!form) return;
+    event.preventDefault();
+
+    try {
+      const userId = await ensureUser();
+      const entryId = String(form.dataset.entryId || "").trim();
+      if (!entryId) throw new Error("Não foi possível identificar o lançamento.");
+
+      const formData = new FormData(form);
+      const summary = String(formData.get("summary") || "").trim();
+      const mealSlot = String(formData.get("meal_slot") || "outro").trim();
+      const recordedAt = String(formData.get("recorded_at") || "").trim();
+      const foodItemsRaw = String(formData.get("food_items_text") || "").trim();
+
+      const payload = {
+        user_id: userId,
+        meal_slot: mealSlot || "outro",
+        summary,
+        raw_input_text: summary,
+        recorded_at: recordedAt || undefined,
+      };
+
+      if (foodItemsRaw) {
+        payload.food_items = parseFoodItemsEditorText(foodItemsRaw);
+      }
+
+      setStatus("Salvando edição do lançamento...", "info");
+      await apiJson(`/api/nutrition/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+
+      await loadAllData();
+      setStatus("Cadastro atualizado com sucesso.", "success");
+    } catch (err) {
+      setStatus(`Erro ao atualizar lançamento: ${err.message}`, "error");
+    }
+  });
+}
+
 function renderNutritionDashboard() {
   const waterTotalNode = document.getElementById("nutrition-water-total");
   const waterSubNode = document.getElementById("nutrition-water-sub");
   const waterDistributionNode = document.getElementById("nutrition-water-distribution");
   const mealsContainer = document.getElementById("nutrition-slot-cards");
   const detailsContainer = document.getElementById("nutrition-details-list");
+  const weeklyContainer = document.getElementById("nutrition-weekly-groups");
   const caloriesTotalNode = document.getElementById("nutrition-calories-total");
   const caloriesMetaNode = document.getElementById("nutrition-calories-meta");
   const workoutCaloriesNode = document.getElementById("nutrition-workouts-calories");
+  const totalEntriesNode = document.getElementById("nutrition-total-entries");
   const macrosOverviewNode = document.getElementById("nutrition-macros-overview");
   if (
     !waterTotalNode ||
@@ -1964,7 +2198,10 @@ function renderNutritionDashboard() {
     return;
   }
 
-  const nutritionEntries = state.cache.nutrition || [];
+  bindNutritionEntryEditEvents(detailsContainer);
+
+  const allNutritionEntries = state.cache.nutrition || [];
+  const nutritionEntries = mealNutritionEntries(allNutritionEntries);
   const hasNutritionEntries = nutritionEntries.length > 0;
   const grouped = buildMealSlotsData(nutritionEntries);
   const calorieGoal = Number(state.cache.dashboard?.overview?.today?.nutrition_calories_goal_kcal || 2200);
@@ -1972,7 +2209,9 @@ function renderNutritionDashboard() {
   const targets = estimateMacroTargetsByCalories(calorieGoal);
   const periodDays = activeFilterDayCount();
 
-  document.getElementById("nutrition-total-entries").textContent = String(nutritionEntries.length || 0);
+  if (totalEntriesNode) {
+    totalEntriesNode.textContent = String(nutritionEntries.length || 0);
+  }
 
   const hydrationTotal = (state.cache.hydration || []).reduce((acc, item) => acc + Number(item.amount_ml || 0), 0);
   const hydrationPeriodGoal = Math.round(hydrationGoalDaily * periodDays);
@@ -2218,50 +2457,181 @@ function renderNutritionDashboard() {
     return !isLikelyClinicalText(entry.raw_input_text || entry.analyzed_summary);
   });
 
+  function buildMealGroupReason(slotKey, entries) {
+    if (!entries.length) {
+      return "Sem registros deste grupo no período filtrado.";
+    }
+
+    const periodTargets = mealMacroTargets(targets, slotKey, periodDays);
+    const calories = entries.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+    const protein = entries.reduce((acc, item) => acc + Number(item.estimated_protein_g || 0), 0);
+    const carbs = entries.reduce((acc, item) => acc + Number(item.estimated_carbs_g || 0), 0);
+    const fat = entries.reduce((acc, item) => acc + Number(item.estimated_fat_g || 0), 0);
+    const caloriesStatus = targetStatus(calories, periodTargets.calories, { mode: "max" });
+    const worstQuality = entries.reduce((worst, item) => pickWorseQuality(worst, item.meal_quality || "bom"), "otimo");
+    const normalizedWorst = normalizeNutritionQuality(worstQuality);
+
+    const reasons = [];
+    reasons.push(
+      caloriesStatus.label === "acima"
+        ? "calorias acima do alvo do período"
+        : "calorias dentro do alvo do período"
+    );
+    if (protein < periodTargets.protein * 0.75) reasons.push("proteína baixa para este grupo");
+    if (carbs > periodTargets.carbs * 1.1) reasons.push("carboidrato acima do ideal");
+    if (fat > periodTargets.fat * 1.1) reasons.push("gordura acima do ideal");
+    if (normalizedWorst === "ainda pode, mas pouco") reasons.push("qualidade geral em atenção");
+    if (normalizedWorst === "ruim" || normalizedWorst === "nunca coma") reasons.push("qualidade geral ruim neste grupo");
+
+    return reasons.join(" | ");
+  }
+
+  const weekEntriesRaw = mealNutritionEntries(state.cache.nutritionWeek || []);
+  const weekMealEntries = weekEntriesRaw.filter((entry) => {
+    const slot = resolveMealSlot(entry);
+    return MEAL_SLOTS_CORE.some((item) => item.key === slot) && !isLikelyClinicalText(entry.raw_input_text || entry.analyzed_summary);
+  });
+
+  const weekGrouped = Object.fromEntries(MEAL_SLOTS_CORE.map((slot) => [slot.key, []]));
+  for (const entry of weekMealEntries) {
+    const slot = resolveMealSlot(entry);
+    if (!weekGrouped[slot]) continue;
+    weekGrouped[slot].push(entry);
+  }
+
+  function buildWeeklyGroupSummary(slotKey, entries) {
+      if (!entries.length) {
+        return {
+          status: { label: "ok", signalClass: "signal-good" },
+          reason: "Sem registros deste grupo na semana atual.",
+          message: "Esta semana ainda não há dados desse grupo para orientar ajuste.",
+        };
+      }
+
+    const weekTargets = mealMacroTargets(targets, slotKey, 7);
+    const weekCalories = entries.reduce((acc, item) => acc + Number(item.estimated_calories || 0), 0);
+    const weekProtein = entries.reduce((acc, item) => acc + Number(item.estimated_protein_g || 0), 0);
+    const weekCarbs = entries.reduce((acc, item) => acc + Number(item.estimated_carbs_g || 0), 0);
+    const weekFat = entries.reduce((acc, item) => acc + Number(item.estimated_fat_g || 0), 0);
+
+    const status = targetStatus(weekCalories, weekTargets.calories, { mode: "max" });
+
+    const dailyMap = new Map();
+    for (const item of entries) {
+      const date = new Date(item.recorded_at || item.created_at || Date.now());
+      const key = dateToInputValue(date);
+      const current = dailyMap.get(key) || { worstQuality: "otimo", calories: 0 };
+      current.worstQuality = pickWorseQuality(current.worstQuality, item.meal_quality || "bom");
+      current.calories += Number(item.estimated_calories || 0);
+      dailyMap.set(key, current);
+    }
+
+    const dayTarget = weekTargets.calories / 7;
+    const errorDays = [...dailyMap.entries()]
+      .filter(([, value]) => {
+        const q = normalizeNutritionQuality(value.worstQuality);
+        return q === "ainda pode, mas pouco" || q === "ruim" || q === "nunca coma" || value.calories > dayTarget * 1.1;
+      })
+      .map(([key]) => {
+        const date = parseDateForDisplay(key);
+        if (!date) return key;
+        return date
+          .toLocaleDateString("pt-BR", { weekday: "short" })
+          .replace(".", "");
+      });
+
+    const reasonParts = [];
+    reasonParts.push(
+      weekCalories > weekTargets.calories * 1.1
+        ? "calorias da semana acima do alvo"
+        : "calorias da semana dentro do esperado"
+    );
+    if (weekProtein < weekTargets.protein * 0.8) reasonParts.push("proteína semanal baixa");
+    if (weekCarbs > weekTargets.carbs * 1.1) reasonParts.push("carboidrato semanal alto");
+    if (weekFat > weekTargets.fat * 1.1) reasonParts.push("gordura semanal alta");
+
+      const reason = reasonParts.join(" | ");
+      const message = errorDays.length
+        ? `Você teve desvios em ${errorDays.length} dia(s) (${errorDays.slice(0, 4).join(", ")}). Amanhã, foque em porção e proteína nesse grupo.`
+        : "Semana consistente nesse grupo. Mantenha o padrão e ajuste só detalhes de porção.";
+
+    return { status, reason, message };
+  }
+
+  const weeklyInsights = Object.fromEntries(
+    MEAL_SLOTS_CORE.map((slot) => [slot.key, buildWeeklyGroupSummary(slot.key, weekGrouped[slot.key] || [])])
+  );
+
+  function renderWeeklyCards() {
+    if (!weeklyContainer) return;
+    weeklyContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
+      const slotEntries = weekGrouped[slot.key] || [];
+      const summary = weeklyInsights[slot.key] || {
+        status: { label: "ok", signalClass: "signal-good" },
+        reason: "Sem dados.",
+        message: "Sem análise semanal.",
+      };
+      return `
+        <article class="weekly-group-card">
+          <header>
+            <strong>${slot.label}</strong>
+            <span class="signal ${summary.status.signalClass}">${summary.status.label}</span>
+          </header>
+          <p class="muted">${slotEntries.length} registro(s) na semana (seg-dom)</p>
+          <p class="nutrition-food-meta"><strong>Análise semana:</strong> ${escapeHtml(summary.reason)}</p>
+          <p class="nutrition-food-meta"><strong>Mensagem IA:</strong> ${escapeHtml(summary.message)}</p>
+        </article>
+      `;
+    }).join("");
+  }
+
   if (!mealEntries.length) {
-    const message = nutritionEntries.length
+    const message = allNutritionEntries.length
       ? "Há registros no período, mas nenhum foi identificado como refeição detalhável. Envie alimento por texto, foto ou áudio."
       : "Sem registros alimentares no período filtrado.";
     detailsContainer.innerHTML = emptyState(message);
-    return;
-  }
+    renderWeeklyCards();
+  } else {
+    const groupedBySlot = Object.fromEntries(MEAL_SLOTS_CORE.map((slot) => [slot.key, []]));
+    for (const entry of mealEntries) {
+      const slot = resolveMealSlot(entry);
+      if (!groupedBySlot[slot]) continue;
+      groupedBySlot[slot].push(entry);
+    }
 
-  const groupedBySlot = Object.fromEntries(MEAL_SLOTS_CORE.map((slot) => [slot.key, []]));
-  for (const entry of mealEntries) {
-    const slot = resolveMealSlot(entry);
-    if (!groupedBySlot[slot]) continue;
-    groupedBySlot[slot].push(entry);
-  }
+    const excessContext = {
+      protein: proteinStatus.label === "acima",
+      carbs: totalCarbs > periodCarbsGoal,
+      fat: totalFat > periodFatGoal,
+      fatBad: totalFatBad > fatBadGoalMax,
+      sodium: sodiumConsumedMg > sodiumGoalMg,
+      sugar: sugarConsumedG > sugarGoalG,
+    };
 
-  const excessContext = {
-    protein: proteinStatus.label === "acima",
-    carbs: totalCarbs > periodCarbsGoal,
-    fat: totalFat > periodFatGoal,
-    fatBad: totalFatBad > fatBadGoalMax,
-    sodium: sodiumConsumedMg > sodiumGoalMg,
-    sugar: sugarConsumedG > sugarGoalG,
-  };
+    detailsContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
+      const entries = groupedBySlot[slot.key] || [];
+      const slotReason = buildMealGroupReason(slot.key, entries);
+      const slotWeekly = weeklyInsights[slot.key];
+      const detailedEntries = entries.slice(0, 6).map((entry) => {
+        const quality = entry.meal_quality || "sem registro";
+        const foodItems = extractFoodItems(entry);
+        const enrichedFoodItems = buildFoodNutritionRows(entry, foodItems);
+        const summary = entry.analyzed_summary || mealTextPreview(entry);
+        const risk = detectDietRiskSignals(entry);
+        const entrySlot = resolveMealSlot(entry);
+        const entryTargets = mealMacroTargets(targets, entrySlot, 1);
+        const entryFatGood = enrichedFoodItems.reduce((acc, item) => acc + Number(item.fat_good_g || 0), 0);
+        const entryFatBad = enrichedFoodItems.reduce((acc, item) => acc + Number(item.fat_bad_g || 0), 0);
+        const entryProteinStatus = targetStatus(entry.estimated_protein_g, entryTargets.protein, { mode: "range", minRatio: 0.75, maxRatio: 1.5 });
+        const entryCarbsStatus = targetStatus(entry.estimated_carbs_g, entryTargets.carbs, { mode: "max" });
+        const entryFatStatus = targetStatus(entry.estimated_fat_g, entryTargets.fat, { mode: "max" });
+        const entryFatGoodStatus = targetStatus(entryFatGood, entryTargets.fat * 0.6, { mode: "min" });
+        const entryFatBadStatus = targetStatus(entryFatBad, entryTargets.fat * 0.4, { mode: "max" });
+        const editorFoodItemsText = serializeFoodItemsForEditor(enrichedFoodItems);
+        const editorRecordedAt = toDateTimeLocalInput(entry.recorded_at);
 
-  detailsContainer.innerHTML = MEAL_SLOTS_CORE.map((slot) => {
-    const entries = groupedBySlot[slot.key] || [];
-    const detailedEntries = entries.slice(0, 6).map((entry) => {
-      const quality = entry.meal_quality || "sem registro";
-      const foodItems = extractFoodItems(entry);
-      const enrichedFoodItems = buildFoodNutritionRows(entry, foodItems);
-      const summary = entry.analyzed_summary || mealTextPreview(entry);
-      const risk = detectDietRiskSignals(entry);
-      const entrySlot = resolveMealSlot(entry);
-      const entryTargets = mealMacroTargets(targets, entrySlot, 1);
-      const entryFatGood = enrichedFoodItems.reduce((acc, item) => acc + Number(item.fat_good_g || 0), 0);
-      const entryFatBad = enrichedFoodItems.reduce((acc, item) => acc + Number(item.fat_bad_g || 0), 0);
-      const entryProteinStatus = targetStatus(entry.estimated_protein_g, entryTargets.protein, { mode: "range", minRatio: 0.75, maxRatio: 1.5 });
-      const entryCarbsStatus = targetStatus(entry.estimated_carbs_g, entryTargets.carbs, { mode: "max" });
-      const entryFatStatus = targetStatus(entry.estimated_fat_g, entryTargets.fat, { mode: "max" });
-      const entryFatGoodStatus = targetStatus(entryFatGood, entryTargets.fat * 0.6, { mode: "min" });
-      const entryFatBadStatus = targetStatus(entryFatBad, entryTargets.fat * 0.4, { mode: "max" });
-
-      const foodDetails = enrichedFoodItems.length
-        ? `
+        const foodDetails = enrichedFoodItems.length
+          ? `
           <div class="nutrition-food-list">
             ${enrichedFoodItems.map((food) => {
               const key = buildFoodKey(food.food_name);
@@ -2328,9 +2698,9 @@ function renderNutritionDashboard() {
             }).join("")}
           </div>
         `
-        : `<p class="muted">Sem itens detalhados nesta refeição.</p>`;
+          : `<p class="muted">Sem itens detalhados nesta refeição.</p>`;
 
-      return `
+        return `
         <article class="nutrition-entry-card">
           <header class="nutrition-entry-header">
             <strong>${fmtDateTime(entry.recorded_at)}</strong>
@@ -2354,20 +2724,49 @@ function renderNutritionDashboard() {
               ? `<p class="nutrition-food-meta"><strong>Ação:</strong> ${escapeHtml(entry.recommended_action)}</p>`
               : ""
           }
+          <div class="nutrition-edit-box">
+            <button class="btn-ghost nutrition-edit-toggle" type="button">Editar lançamento</button>
+            <form class="stack nutrition-edit-form is-hidden" data-entry-id="${escapeHtml(entry.id)}">
+              <label class="filter-field">
+                <span>Grupo alimentar</span>
+                <select name="meal_slot">${mealSlotOptionsHtml(entrySlot)}</select>
+              </label>
+              <label class="filter-field">
+                <span>Resumo ajustado</span>
+                <textarea name="summary" rows="2" required>${escapeHtml(summary)}</textarea>
+              </label>
+              <label class="filter-field">
+                <span>Alimentos (um por linha: alimento | porção)</span>
+                <textarea name="food_items_text" rows="4" placeholder="Ex.: Suco de limão | 1 copo">${escapeHtml(editorFoodItemsText)}</textarea>
+              </label>
+              <label class="filter-field">
+                <span>Data/hora do registro</span>
+                <input name="recorded_at" type="datetime-local" value="${escapeHtml(editorRecordedAt)}" />
+              </label>
+              <div class="nutrition-edit-actions">
+                <button class="btn-secondary" type="submit">Salvar edição</button>
+                <button class="btn-ghost nutrition-edit-cancel" type="button">Cancelar</button>
+              </div>
+            </form>
+          </div>
         </article>
       `;
-    }).join("");
+      }).join("");
 
-    return `
+      return `
       <article class="history-item">
         <header>
           <strong>${slot.label}</strong>
           <span class="tag quality-default">${entries.length} registro(s)</span>
         </header>
+        <p class="nutrition-food-meta"><strong>Motivo:</strong> ${escapeHtml(slotReason)}</p>
+        <p class="nutrition-food-meta"><strong>Mensagem IA:</strong> ${escapeHtml(slotWeekly?.message || "Sem mensagem.")}</p>
         ${entries.length ? detailedEntries : `<p class="muted">Sem registro neste período.</p>`}
       </article>
     `;
-  }).join("");
+    }).join("");
+    renderWeeklyCards();
+  }
 }
 
 function renderHistories() {
@@ -3155,13 +3554,14 @@ function renderAiInfo() {
 async function loadAllData() {
   const userId = await ensureUser();
   const filterParams = currentFilterParams();
+  const currentWeek = currentWeekRangeInput();
 
   const common = {
     user_id: userId,
     ...filterParams,
   };
 
-  const [dashboard, profile, aiInfo, reports, measurements, measurementsAll, bioimpedance, bioimpedanceAll, exams, examsAll, hydration, workouts, nutrition] = await Promise.all([
+  const [dashboard, profile, aiInfo, reports, measurements, measurementsAll, bioimpedance, bioimpedanceAll, exams, examsAll, hydration, workouts, nutrition, nutritionWeek] = await Promise.all([
     apiJson(`/api/dashboard/overview?${queryStringFromObject({ user_id: userId })}`),
     apiJson(`/api/profile?${queryStringFromObject({ user_id: userId })}`),
     apiJson("/api/ai/info").catch((error) => ({ ok: false, error: error.message })),
@@ -3175,6 +3575,7 @@ async function loadAllData() {
     apiJson(`/api/hydration?${queryStringFromObject({ ...common, limit: 500 })}`),
     apiJson(`/api/workouts?${queryStringFromObject({ ...common, limit: 300 })}`),
     apiJson(`/api/nutrition?${queryStringFromObject({ ...common, limit: 300 })}`),
+    apiJson(`/api/nutrition?${queryStringFromObject({ user_id: userId, from: currentWeek.from, to: currentWeek.to, limit: 500 })}`),
   ]);
 
   state.cache.dashboard = dashboard;
@@ -3190,6 +3591,7 @@ async function loadAllData() {
   state.cache.hydration = hydration.hydration || [];
   state.cache.workouts = workouts.workouts || [];
   state.cache.nutrition = nutrition.nutrition || [];
+  state.cache.nutritionWeek = nutritionWeek.nutrition || [];
 
   renderMetricCards();
   renderProfileSummary();
@@ -3409,7 +3811,31 @@ function setupForms() {
       return;
     }
 
-    if (state.nutritionDraft && isLikelyDraftCorrectionText(rawText)) {
+    if (mode === "save") {
+      const saved = await apiJson("/api/nutrition/analyze-text", {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId, text: rawText, persist: true }),
+      });
+
+      clearNutritionDraft();
+      renderNutritionDraftPreview();
+      await loadAllData();
+
+      const previousMode = form.querySelector("select[name='mode']")?.value || "save";
+      form.reset();
+      const modeSelect = form.querySelector("select[name='mode']");
+      if (modeSelect) modeSelect.value = previousMode;
+      syncNutritionTextUiByMode();
+
+      if (saved?.water_only) {
+        setStatus(`Cadastro realizado com sucesso: hidratação registrada (${fmtNumber(saved.water_logged_ml, 0)} ml).`, "success");
+      } else {
+        setStatus("Cadastro realizado com sucesso: alimentação registrada direto.", "success");
+      }
+      return saved;
+    }
+
+    if (mode === "draft" && state.nutritionDraft && isLikelyDraftCorrectionText(rawText)) {
       const revised = await reviseCurrentNutritionDraft(rawText);
       renderNutritionDraftPreview();
 
@@ -3446,13 +3872,22 @@ function setupForms() {
   function syncNutritionTextUiByMode() {
     const currentMode = nutritionTextModeSelect?.value || "chat";
     if (nutritionTextSubmitButton) {
-      nutritionTextSubmitButton.textContent = currentMode === "chat" ? "Enviar mensagem" : "Analisar para rascunho";
+      if (currentMode === "chat") {
+        nutritionTextSubmitButton.textContent = "Enviar mensagem";
+      } else if (currentMode === "save") {
+        nutritionTextSubmitButton.textContent = "Analisar e gravar direto";
+      } else {
+        nutritionTextSubmitButton.textContent = "Analisar para rascunho";
+      }
     }
     if (nutritionTextInput) {
-      nutritionTextInput.placeholder =
-        currentMode === "chat"
-          ? "Ex.: Estou com vontade de doce agora, como ajusto meu dia?"
-          : "Ex.: Almoço: arroz, feijão, frango grelhado e 400 ml de água";
+      if (currentMode === "chat") {
+        nutritionTextInput.placeholder = "Ex.: Estou com vontade de doce agora, como ajusto meu dia?";
+      } else if (currentMode === "save") {
+        nutritionTextInput.placeholder = "Ex.: Janta: frango grelhado, salada e 300 ml de água (registrar direto)";
+      } else {
+        nutritionTextInput.placeholder = "Ex.: Almoço: arroz, feijão, frango grelhado e 400 ml de água";
+      }
     }
   }
 
@@ -3538,7 +3973,7 @@ function setupForms() {
       const slotKey = MEAL_SLOTS.some((item) => item.key === mealSlot) ? mealSlot : state.nutritionDraft.analysis.meal_slot;
 
       setStatus("Registrando refeição do rascunho...", "info");
-      await apiJson("/api/nutrition/register-draft", {
+      const saved = await apiJson("/api/nutrition/register-draft", {
         method: "POST",
         body: JSON.stringify({
           user_id: userId,
@@ -3566,7 +4001,11 @@ function setupForms() {
       nutritionDraftForm.reset();
       const draftRecordedAtInput = nutritionDraftForm.querySelector("input[name='recorded_at']");
       if (draftRecordedAtInput) draftRecordedAtInput.value = currentDateTimeLocalValue();
-      await refreshAllWithStatus("Refeição registrada a partir do rascunho.");
+      if (saved?.water_only) {
+        await refreshAllWithStatus(`Cadastro realizado com sucesso: hidratação registrada (${fmtNumber(saved.water_logged_ml, 0)} ml).`);
+      } else {
+        await refreshAllWithStatus("Cadastro realizado com sucesso: refeição registrada a partir do rascunho.");
+      }
     } catch (err) {
       setStatus(`Erro ao registrar rascunho: ${err.message}`, "error");
     }
@@ -3617,7 +4056,7 @@ function setupForms() {
     });
 
     form.reset();
-    await refreshAllWithStatus("Hidratação registrada.");
+    await refreshAllWithStatus("Cadastro realizado com sucesso: hidratação registrada.");
   });
 
   bindForm("profile-form", async (payload) => {
@@ -3673,7 +4112,7 @@ function setupForms() {
     });
 
     form.reset();
-    await refreshAllWithStatus("Treino salvo.");
+    await refreshAllWithStatus("Cadastro realizado com sucesso: treino salvo.");
   });
 
   const bioUploadForm = document.getElementById("bioimpedance-upload-form");

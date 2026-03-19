@@ -20,6 +20,7 @@ const {
   workoutCreateController,
   workoutListController,
   nutritionListController,
+  nutritionUpdateController,
   nutritionTextAnalyzeController,
   nutritionImageAnalyzeController,
   nutritionAudioAnalyzeController,
@@ -67,6 +68,7 @@ router.post("/api/workouts", workoutCreateController);
 router.get("/api/workouts/recommendation", workoutRecommendationController);
 
 router.get("/api/nutrition", nutritionListController);
+router.patch("/api/nutrition/:id", nutritionUpdateController);
 router.post("/api/nutrition/analyze-text", nutritionTextAnalyzeController);
 router.post("/api/nutrition/analyze-image", upload.single("file"), nutritionImageAnalyzeController);
 router.post("/api/nutrition/analyze-audio", upload.single("file"), nutritionAudioAnalyzeController);
