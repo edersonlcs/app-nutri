@@ -20,10 +20,40 @@ async function findOrCreateUserFromTelegram(from) {
   return data;
 }
 
+async function findOrCreateUserFromAuth(authUser) {
+  const authUserId = String(authUser?.id || "").trim();
+  if (!authUserId) {
+    throw new Error("Usuario auth invalido");
+  }
+
+  const email = String(authUser?.email || "").trim() || null;
+  const metadata = authUser?.user_metadata || {};
+  const fullName = String(metadata.full_name || metadata.name || "").trim();
+  const displayName = fullName || email || `auth_${authUserId.slice(0, 8)}`;
+
+  const payload = {
+    auth_user_id: authUserId,
+    auth_email: email,
+    display_name: displayName,
+  };
+
+  const { data, error } = await supabase
+    .from("app_users")
+    .upsert(payload, { onConflict: "auth_user_id" })
+    .select("id, auth_user_id, auth_email, telegram_user_id, telegram_username, display_name, timezone")
+    .single();
+
+  if (error) {
+    throw new Error(`Erro ao criar/obter usuario Auth: ${error.message}`);
+  }
+
+  return data;
+}
+
 async function listUsers() {
   const { data, error } = await supabase
     .from("app_users")
-    .select("id, telegram_user_id, telegram_username, display_name, timezone, created_at")
+    .select("id, auth_user_id, auth_email, telegram_user_id, telegram_username, display_name, timezone, created_at")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -36,8 +66,9 @@ async function listUsers() {
 async function createDefaultUserIfNeeded() {
   const { data: existing, error: existingError } = await supabase
     .from("app_users")
-    .select("id, telegram_user_id, telegram_username, display_name, timezone, created_at")
+    .select("id, auth_user_id, auth_email, telegram_user_id, telegram_username, display_name, timezone, created_at")
     .is("telegram_user_id", null)
+    .is("auth_user_id", null)
     .eq("display_name", "Usuario EdeVida")
     .order("created_at", { ascending: true })
     .limit(1)
@@ -57,7 +88,7 @@ async function createDefaultUserIfNeeded() {
       display_name: "Usuario EdeVida",
       timezone: "America/Sao_Paulo",
     })
-    .select("id, telegram_user_id, telegram_username, display_name, timezone, created_at")
+    .select("id, auth_user_id, auth_email, telegram_user_id, telegram_username, display_name, timezone, created_at")
     .single();
 
   if (error) {
@@ -67,7 +98,11 @@ async function createDefaultUserIfNeeded() {
   return data;
 }
 
-async function resolveUserId(optionalUserId) {
+async function resolveUserId(optionalUserId, authAppUserId = null) {
+  if (authAppUserId) {
+    return authAppUserId;
+  }
+
   if (optionalUserId) {
     return optionalUserId;
   }
@@ -83,6 +118,7 @@ async function resolveUserId(optionalUserId) {
 
 module.exports = {
   findOrCreateUserFromTelegram,
+  findOrCreateUserFromAuth,
   listUsers,
   createDefaultUserIfNeeded,
   resolveUserId,

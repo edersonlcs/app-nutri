@@ -1,5 +1,10 @@
 const { asyncHandler } = require("../utils/asyncHandler");
-const { resolveUserId, listUsers, createDefaultUserIfNeeded } = require("../services/userService");
+const {
+  resolveUserId,
+  listUsers,
+  createDefaultUserIfNeeded,
+  findOrCreateUserFromAuth,
+} = require("../services/userService");
 const {
   processTextMessage,
   processImageBufferInput,
@@ -439,8 +444,36 @@ async function persistNutritionFromAnalysis({
 }
 
 async function resolveRequestUserId(req) {
-  return resolveUserId(req.body?.user_id || req.query?.user_id);
+  return resolveUserId(req.body?.user_id || req.query?.user_id, req.auth?.appUser?.id || null);
 }
+
+const authConfigController = asyncHandler(async (_req, res) => {
+  return res.json({
+    ok: true,
+    auth: {
+      enabled: Boolean(cfg.webAuthEnabled),
+      supabase_url: cfg.supabaseUrl,
+      supabase_publishable_key: cfg.supabasePublishableKey,
+    },
+  });
+});
+
+const authMeController = asyncHandler(async (req, res) => {
+  if (!req.auth?.supabaseUser) {
+    return res.status(401).json({ ok: false, error: "Sessao nao autenticada" });
+  }
+
+  const appUser = req.auth?.appUser || (await findOrCreateUserFromAuth(req.auth.supabaseUser));
+  return res.json({
+    ok: true,
+    auth_user: {
+      id: req.auth.supabaseUser.id,
+      email: req.auth.supabaseUser.email || null,
+      created_at: req.auth.supabaseUser.created_at || null,
+    },
+    app_user: appUser,
+  });
+});
 
 const usersListController = asyncHandler(async (req, res) => {
   const autoCreate = String(req.query.auto_create || "").toLowerCase();
@@ -1668,6 +1701,8 @@ const aiSettingsUpdateController = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  authConfigController,
+  authMeController,
   usersListController,
   userProfileUpsertController,
   userProfileGetController,

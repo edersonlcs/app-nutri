@@ -415,6 +415,12 @@ Antes de codar, vamos confirmar que o app tera espaco para os dados que voce que
   - texto/visao: tenta modelo configurado e, se indisponivel, cai para `gpt-4.1-mini` e `gpt-4o-mini`;
   - transcricao: fallback para `gpt-4o-mini-transcribe` e `gpt-4o-transcribe`.
 - Recomendacao de seguranca aplicada no Git: `temp/` ignorado por padrao para evitar commit de arquivos pessoais.
+- Login web implementado com Supabase Auth (email/senha), incluindo:
+  - tela de login no `/painel`;
+  - token Bearer automático nas chamadas web;
+  - endpoint `GET /api/auth/me` para vincular sessão ao `app_users`;
+  - middleware de proteção nas rotas `/api/*` do painel.
+- Restrição de acesso pessoal no login web por whitelist de e-mail (`WEB_AUTH_ALLOWED_EMAILS`), retornando bloqueio para e-mails fora da lista.
 
 Variaveis novas para o fluxo de Storage:
 

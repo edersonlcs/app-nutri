@@ -16,6 +16,11 @@ Estado atual relevante:
 - `Info` mostra bloco de uso do sistema (projeto local, banco Supabase, Storage e contagens de registros).
 - Endpoint de suporte: `GET /api/system/usage`.
 - Endpoint de anexo privado: `GET /api/files/open?file_url=...` (URL assinada sob demanda).
+- Login web ativo com Supabase Auth:
+  - `GET /api/auth/config`
+  - `GET /api/auth/me`
+  - Middleware de proteção em `apps/api/src/middleware/webAuthMiddleware.js`
+  - Whitelist opcional de e-mail em `WEB_AUTH_ALLOWED_EMAILS` para acesso pessoal unico
 
 ## 2) Pastas principais
 
@@ -139,6 +144,13 @@ Variaveis de ambiente do Storage:
 SUPABASE_STORAGE_ENABLED=true
 SUPABASE_STORAGE_BUCKET=edevida-private
 SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS=900
+```
+
+Variaveis de ambiente do Auth web (recomendado para uso pessoal):
+
+```env
+WEB_AUTH_ENABLED=true
+WEB_AUTH_ALLOWED_EMAILS=edersonlcs@hotmail.com
 ```
 
 ## 8) Checklist rapido pos-alteracao

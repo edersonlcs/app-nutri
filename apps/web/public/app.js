@@ -1,5 +1,13 @@
 const state = {
   userId: null,
+  auth: {
+    config: null,
+    client: null,
+    session: null,
+    accessToken: "",
+    user: null,
+    appUser: null,
+  },
   charts: {
     weight: null,
     fat: null,
@@ -477,12 +485,24 @@ function queryStringFromObject(input) {
   return new URLSearchParams(compactObject(input)).toString();
 }
 
+function authHeaders(extraHeaders = {}, { includeJson = true } = {}) {
+  const headers = {
+    ...(includeJson ? { "Content-Type": "application/json" } : {}),
+    ...(extraHeaders || {}),
+  };
+
+  if (state.auth.accessToken) {
+    headers.Authorization = `Bearer ${state.auth.accessToken}`;
+  }
+
+  return headers;
+}
+
 async function apiJson(url, options = {}) {
+  const includeJson = options.body !== undefined && options.body !== null;
+  const headers = authHeaders(options.headers || {}, { includeJson });
   const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+    headers,
     ...options,
   });
 
@@ -496,9 +516,11 @@ async function apiJson(url, options = {}) {
 }
 
 async function apiFormData(url, formData, options = {}) {
+  const headers = authHeaders(options.headers || {}, { includeJson: false });
   const response = await fetch(url, {
     method: "POST",
     body: formData,
+    headers,
     ...options,
   });
 
@@ -511,15 +533,214 @@ async function apiFormData(url, formData, options = {}) {
   return body;
 }
 
-async function ensureUser() {
-  if (state.userId) return state.userId;
+function setAuthMessage(message, type = "info") {
+  const node = document.getElementById("auth-message");
+  if (!node) return;
+  node.textContent = message;
+  node.classList.remove("status-info", "status-success", "status-warning", "status-error");
+  node.classList.add(`status-${type}`);
+}
 
-  const usersPayload = await apiJson("/api/users?auto_create=1");
-  if (!usersPayload.users || usersPayload.users.length === 0) {
-    throw new Error("Nao foi possivel encontrar/criar usuario principal");
+function setAuthOverlayVisible(visible) {
+  const overlay = document.getElementById("auth-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("is-active", Boolean(visible));
+}
+
+function updateAuthUserBar() {
+  const bar = document.getElementById("auth-user-bar");
+  const label = document.getElementById("auth-user-label");
+  if (!bar || !label) return;
+
+  const appUser = state.auth.appUser || null;
+  const authUser = state.auth.user || null;
+  if (!appUser && !authUser) {
+    bar.classList.add("is-hidden");
+    label.textContent = "Sessão autenticada";
+    return;
   }
 
-  state.userId = usersPayload.users[0].id;
+  const preferredName =
+    appUser?.display_name || authUser?.user_metadata?.full_name || authUser?.email || "Usuário";
+  label.textContent = `Conectado como ${preferredName}`;
+  bar.classList.remove("is-hidden");
+}
+
+function resetAuthContext() {
+  state.auth.session = null;
+  state.auth.accessToken = "";
+  state.auth.user = null;
+  state.auth.appUser = null;
+  state.userId = null;
+  updateAuthUserBar();
+}
+
+async function resolveAuthenticatedUser() {
+  const payload = await apiJson("/api/auth/me");
+  if (!payload?.ok || !payload?.app_user?.id) {
+    throw new Error("Falha ao vincular usuário autenticado ao painel");
+  }
+
+  state.auth.user = payload.auth_user || null;
+  state.auth.appUser = payload.app_user || null;
+  state.userId = payload.app_user.id;
+  updateAuthUserBar();
+}
+
+async function handleAuthSession(session, { refreshOnLogin = true } = {}) {
+  if (!session?.access_token) {
+    resetAuthContext();
+    setAuthOverlayVisible(true);
+    setStatus("Faça login para acessar o painel.", "info");
+    return;
+  }
+
+  state.auth.session = session;
+  state.auth.accessToken = session.access_token;
+  state.auth.user = session.user || null;
+
+  await resolveAuthenticatedUser();
+  setAuthOverlayVisible(false);
+  setAuthMessage("Sessão ativa.", "success");
+  setStatus("Sessão autenticada. Carregando dados...", "info");
+
+  if (refreshOnLogin) {
+    await loadAllData();
+    updateFilterSummary();
+    setStatus("Painel carregado.", "success");
+  }
+}
+
+async function ensureAuthInitialized() {
+  if (state.auth.client) return;
+
+  const authConfigPayload = await apiJson("/api/auth/config");
+  const authConfig = authConfigPayload?.auth || {};
+  state.auth.config = authConfig;
+
+  if (!authConfig.enabled) {
+    throw new Error("Autenticação web está desativada no servidor.");
+  }
+
+  if (!authConfig.supabase_url || !authConfig.supabase_publishable_key) {
+    throw new Error("Configuração do Supabase Auth incompleta no backend.");
+  }
+
+  if (!window.supabase?.createClient) {
+    throw new Error("Biblioteca do Supabase não carregada no navegador.");
+  }
+
+  state.auth.client = window.supabase.createClient(
+    authConfig.supabase_url,
+    authConfig.supabase_publishable_key
+  );
+
+  state.auth.client.auth.onAuthStateChange((event, session) => {
+    const shouldRefresh = event !== "INITIAL_SESSION";
+    handleAuthSession(session, { refreshOnLogin: shouldRefresh }).catch((err) => {
+      resetAuthContext();
+      setAuthOverlayVisible(true);
+      setStatus(`Falha ao validar sessão: ${err.message}`, "warning");
+      setAuthMessage(`Falha ao validar sessão: ${err.message}`, "warning");
+    });
+  });
+
+  const sessionPayload = await state.auth.client.auth.getSession();
+  const session = sessionPayload?.data?.session || null;
+  await handleAuthSession(session, { refreshOnLogin: false });
+}
+
+async function signInWithEmailPassword() {
+  await ensureAuthInitialized();
+  const emailNode = document.getElementById("auth-email");
+  const passwordNode = document.getElementById("auth-password");
+  const email = String(emailNode?.value || "").trim();
+  const password = String(passwordNode?.value || "");
+
+  if (!email || !password) {
+    throw new Error("Preencha e-mail e senha.");
+  }
+
+  const { error } = await state.auth.client.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+}
+
+async function signUpWithEmailPassword() {
+  await ensureAuthInitialized();
+  const emailNode = document.getElementById("auth-email");
+  const passwordNode = document.getElementById("auth-password");
+  const email = String(emailNode?.value || "").trim();
+  const password = String(passwordNode?.value || "");
+
+  if (!email || !password) {
+    throw new Error("Preencha e-mail e senha para criar a conta.");
+  }
+
+  const { data, error } = await state.auth.client.auth.signUp({ email, password });
+  if (error) throw new Error(error.message);
+
+  if (!data?.session) {
+    setAuthMessage("Conta criada. Verifique seu e-mail para confirmar o acesso.", "success");
+  }
+}
+
+async function signOutSession() {
+  if (!state.auth.client) return;
+  const { error } = await state.auth.client.auth.signOut();
+  if (error) throw new Error(error.message);
+}
+
+function setupAuthForm() {
+  const authForm = document.getElementById("auth-form");
+  const signInButton = document.getElementById("auth-signin-btn");
+  const signUpButton = document.getElementById("auth-signup-btn");
+  const logoutButton = document.getElementById("auth-logout-btn");
+
+  authForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      setAuthMessage("Entrando...", "info");
+      await signInWithEmailPassword();
+    } catch (err) {
+      setAuthMessage(`Falha no login: ${err.message}`, "error");
+    }
+  });
+
+  signInButton?.addEventListener("click", async () => {
+    try {
+      setAuthMessage("Entrando...", "info");
+      await signInWithEmailPassword();
+    } catch (err) {
+      setAuthMessage(`Falha no login: ${err.message}`, "error");
+    }
+  });
+
+  signUpButton?.addEventListener("click", async () => {
+    try {
+      setAuthMessage("Criando conta...", "info");
+      await signUpWithEmailPassword();
+    } catch (err) {
+      setAuthMessage(`Falha ao criar conta: ${err.message}`, "error");
+    }
+  });
+
+  logoutButton?.addEventListener("click", async () => {
+    try {
+      await signOutSession();
+      setAuthMessage("Sessão encerrada.", "info");
+    } catch (err) {
+      setStatus(`Erro ao sair: ${err.message}`, "error");
+    }
+  });
+}
+
+async function ensureUser() {
+  if (state.userId) return state.userId;
+  if (!state.auth.session?.access_token) {
+    throw new Error("Sessão não autenticada.");
+  }
+
+  await resolveAuthenticatedUser();
   return state.userId;
 }
 
@@ -4535,16 +4756,26 @@ async function boot() {
   setupDateFilter();
   setupActions();
   setupForms();
+  setupAuthForm();
   setupAttachmentHistoryActions();
   renderNutritionDraftPreview();
 
   try {
-    setStatus("Carregando dados...", "info");
-    await loadAllData();
-    updateFilterSummary();
-    setStatus("Painel carregado.", "success");
+    setStatus("Iniciando autenticação...", "info");
+    await ensureAuthInitialized();
+
+    if (state.auth.session?.access_token) {
+      setStatus("Carregando dados...", "info");
+      await loadAllData();
+      updateFilterSummary();
+      setStatus("Painel carregado.", "success");
+    } else {
+      setStatus("Faça login para acessar o painel.", "info");
+    }
   } catch (err) {
-    setStatus(`Painel carregado com aviso: ${err.message}`, "warning");
+    setStatus(`Falha ao iniciar painel: ${err.message}`, "error");
+    setAuthMessage(`Falha ao iniciar autenticação: ${err.message}`, "error");
+    setAuthOverlayVisible(true);
   }
 }
 

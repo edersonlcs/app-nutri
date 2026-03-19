@@ -1,6 +1,9 @@
 const express = require("express");
 const multer = require("multer");
+const { optionalWebAuth, requireWebAuth } = require("../middleware/webAuthMiddleware");
 const {
+  authConfigController,
+  authMeController,
   usersListController,
   userProfileUpsertController,
   userProfileGetController,
@@ -45,6 +48,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 },
 });
+
+router.get("/api/auth/config", authConfigController);
+router.use(optionalWebAuth);
+router.get("/api/auth/me", requireWebAuth, authMeController);
+router.use("/api", requireWebAuth);
 
 router.get("/api/users", usersListController);
 

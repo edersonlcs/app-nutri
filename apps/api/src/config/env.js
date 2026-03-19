@@ -4,6 +4,13 @@ const dotenv = require("dotenv");
 const envPath = process.env.ENV_FILE || path.resolve(__dirname, "../../../../.env");
 dotenv.config({ path: envPath });
 
+function parseCsvLowerList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 const cfg = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 3000),
@@ -26,6 +33,8 @@ const cfg = {
   supabaseStorageEnabled: String(process.env.SUPABASE_STORAGE_ENABLED || "true").toLowerCase() !== "false",
   supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET || "edevida-private",
   supabaseStorageSignedUrlTtlSeconds: Number(process.env.SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS || 900),
+  webAuthEnabled: String(process.env.WEB_AUTH_ENABLED || "true").toLowerCase() !== "false",
+  webAuthAllowedEmails: parseCsvLowerList(process.env.WEB_AUTH_ALLOWED_EMAILS || ""),
 };
 
 function missingRequiredForRuntime() {

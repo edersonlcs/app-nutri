@@ -44,6 +44,8 @@ curl http://127.0.0.1:3000/painel
 ## Funcionalidades implementadas (MVP atual)
 
 - Webhook Telegram com seguranca por `TELEGRAM_WEBHOOK_SECRET`
+- Login web com Supabase Auth (email/senha) no painel
+- Restricao de login web por whitelist de e-mail (`WEB_AUTH_ALLOWED_EMAILS`)
 - Registro de mensagens Telegram no Supabase (`telegram_updates`)
 - Analise nutricional por texto com OpenAI
 - Analise de foto de refeicao (visao) com OpenAI
@@ -73,6 +75,8 @@ curl http://127.0.0.1:3000/painel
 - `POST /webhook/telegram`
 - `GET /api/telegram/webhook-info`
 - `GET /api/users?auto_create=1`
+- `GET /api/auth/config` (config pública do Supabase Auth para o frontend)
+- `GET /api/auth/me` (usuário autenticado + vínculo em `app_users`)
 - `POST /api/nutrition/analyze-text`
 - `PATCH /api/nutrition/:id` (editar lancamento alimentar)
 - `POST /api/hydration`
@@ -95,6 +99,7 @@ curl http://127.0.0.1:3000/painel
 
 1. Web:
    - Abra `https://SEU_DOMINIO/painel`
+   - Faça login com e-mail/senha (Supabase Auth)
    - Registre perfil, medidas, hidracao e treinos
    - Use a aba `Anexos` para enviar bioimpedancia e exames (PDF/imagem)
 
@@ -130,6 +135,13 @@ Fluxo aplicado para reduzir dependencia de disco local e facilitar migracao para
 3. API Node stateless (arquivo local permanente so em fallback).
 4. Acesso a anexo privado via endpoint de abertura segura (`/api/files/open`) com URL assinada.
 5. Supabase Auth segue opcional para quando ativar login web real (hoje pode seguir com 1 usuario).
+
+Variavel util para acesso pessoal unico:
+
+```env
+WEB_AUTH_ENABLED=true
+WEB_AUTH_ALLOWED_EMAILS=edersonlcs@hotmail.com
+```
 
 Observacao sobre imagens grandes:
 

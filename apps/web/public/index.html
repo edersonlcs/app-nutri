@@ -10,10 +10,27 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/web/styles.css?v=20260319c" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260319d" />
   </head>
   <body>
     <div class="bg-layer"></div>
+
+    <section id="auth-overlay" class="auth-overlay is-active">
+      <article class="auth-card">
+        <p class="eyebrow">Acesso seguro</p>
+        <h2>Entrar no EdeVida</h2>
+        <p class="muted">Use seu e-mail e senha do Supabase Auth para abrir o painel.</p>
+        <form id="auth-form" class="stack">
+          <input id="auth-email" type="email" placeholder="seu@email.com" required />
+          <input id="auth-password" type="password" placeholder="Sua senha" required />
+          <div class="auth-actions">
+            <button id="auth-signin-btn" class="btn-primary" type="button">Entrar</button>
+            <button id="auth-signup-btn" class="btn-ghost" type="button">Criar conta</button>
+          </div>
+        </form>
+        <p id="auth-message" class="muted">Faça login para continuar.</p>
+      </article>
+    </section>
 
     <main class="layout">
       <header class="hero card">
@@ -22,6 +39,10 @@
         <p class="subtitle">
           Nutrição, hidratação, exames, bioimpedância, treino e evolução física em um só painel.
         </p>
+        <div id="auth-user-bar" class="auth-user-bar is-hidden">
+          <span id="auth-user-label" class="muted">Sessão autenticada</span>
+          <button id="auth-logout-btn" class="btn-ghost" type="button">Sair</button>
+        </div>
         <div class="hero-actions">
           <button id="refresh-dashboard" class="btn-primary">Atualizar tudo</button>
           <button id="generate-daily-report" class="btn-secondary">Gerar relatório diário</button>
@@ -669,6 +690,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="/web/app.js?v=20260319d" type="module"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/web/app.js?v=20260319e" type="module"></script>
   </body>
 </html>
