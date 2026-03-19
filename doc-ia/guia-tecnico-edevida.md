@@ -10,6 +10,12 @@ Este documento registra como o sistema foi montado e como ajustar no futuro sem 
 - Bot: Telegram via webhook em `POST /webhook/telegram`
 - IA: OpenAI para texto, imagem, audio e analise de anexos clinicos
 
+Estado atual relevante:
+
+- Aba `Cadastro` foi renomeada para `Info`.
+- `Info` mostra bloco de uso do sistema (projeto local, banco Supabase, Storage e contagens de registros).
+- Endpoint de suporte: `GET /api/system/usage`.
+
 ## 2) Pastas principais
 
 - `apps/api/src/controllers/telegramController.js`: menu, comandos e fluxo de rascunho no Telegram
@@ -100,8 +106,24 @@ Flags uteis:
 - Ajustar dashboard/web: `apps/web/public/app.js` + `apps/web/public/index.html` + `apps/web/public/styles.css`
 - Ajustar compatibilidade de transcricao de audio: `apps/api/src/services/nutritionAiService.js` e `apps/api/src/services/telegramMessageProcessor.js`
 - Ajustar endpoint de edicao de lancamentos: `apps/api/src/controllers/trackingController.js` + `apps/api/src/services/trackingDataService.js`
+- Ajustar monitor de uso (painel Info): `apps/api/src/services/systemUsageService.js` + `GET /api/system/usage`
 
-## 7) Checklist rapido pos-alteracao
+## 7) Arquitetura alvo (proxima fase)
+
+Direcao recomendada para reduzir acoplamento com VPS:
+
+1. Supabase Postgres como base oficial de dados.
+2. Supabase Storage privado para exames e fotos.
+3. API stateless na hospedagem (Hostinger), sem persistencia local definitiva.
+4. Arquivo local apenas temporario para processamento de upload.
+5. Supabase Auth para login web quando ativado.
+
+Compressao/otimizacao de imagem:
+
+- Ja existe no backend em `apps/api/src/services/attachmentStorageService.js` usando `sharp`.
+- Mesmo com Storage no Supabase, manter o passo de otimizacao antes do upload para reduzir custo.
+
+## 8) Checklist rapido pos-alteracao
 
 1. `node --check apps/api/src/controllers/telegramController.js`
 2. `node --check apps/api/src/controllers/trackingController.js`

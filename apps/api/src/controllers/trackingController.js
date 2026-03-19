@@ -61,6 +61,7 @@ const {
 } = require("../services/healthAttachmentAiService");
 const { cfg } = require("../config/env");
 const { getPersonaDocument } = require("../services/personaService");
+const { getSystemUsageSnapshot } = require("../services/systemUsageService");
 const {
   MODEL_LABELS,
   resolveAiSettingsFromProfile,
@@ -1442,6 +1443,13 @@ const workoutRecommendationController = asyncHandler(async (req, res) => {
   });
 });
 
+const systemUsageController = asyncHandler(async (req, res) => {
+  const userId = await resolveRequestUserId(req);
+  const force = parsePersistFlag(req.query?.force, false);
+  const usage = await getSystemUsageSnapshot({ userId, force });
+  return res.json({ ok: true, usage });
+});
+
 const aiInfoController = asyncHandler(async (req, res) => {
   const userId = await resolveRequestUserId(req);
   const persona = getPersonaDocument();
@@ -1562,6 +1570,7 @@ module.exports = {
   nutritionChatController,
   aiInfoController,
   aiSettingsUpdateController,
+  systemUsageController,
   reportGenerateController,
   reportListController,
   dashboardOverviewController,

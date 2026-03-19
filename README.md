@@ -84,6 +84,7 @@ curl http://127.0.0.1:3000/painel
 - `PATCH /api/medical-exams/:id` (editar nome/tipo/data/observacoes do exame)
 - `DELETE /api/medical-exams/:id` (remover exame + tentar apagar arquivo do anexo)
 - `GET /api/ai/info` e `POST /api/ai/settings` (visualizar/alterar perfil de modelos IA)
+- `GET /api/system/usage` (uso local + Supabase + contagens do usuario)
 - `POST /api/workouts`
 - `POST /api/reports/generate`
 - `GET /api/dashboard/overview`
@@ -115,3 +116,18 @@ curl http://127.0.0.1:3000/painel
 
 - VPS: `infra/deploy/README.md`
 - Hostinger (migracao futura): `infra/deploy/hostinger/README.md`
+
+## Arquitetura recomendada (proxima fase)
+
+Para reduzir dependencia da VPS e facilitar migracao para hospedagem Node comum:
+
+1. Supabase Postgres como fonte oficial dos dados.
+2. Supabase Storage privado para exames e fotos de evolucao.
+3. API Node stateless na hospedagem (sem manter arquivo permanente local).
+4. Disco local apenas temporario para processar upload; apagar apos salvar definitivo.
+5. Supabase Auth quando ativar login web real (hoje pode seguir com 1 usuario).
+
+Observacao sobre imagens grandes:
+
+- O backend atual ja faz otimizacao/compressao local de imagem com `sharp` antes de salvar.
+- Na fase de migracao para Supabase Storage, manteremos esse tratamento para reduzir tamanho e custo.

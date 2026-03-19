@@ -977,6 +977,35 @@ h3 {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.system-usage-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.system-usage-counts {
+  margin-top: 0.7rem;
+}
+
+.system-usage-card {
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.system-usage-card h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.system-usage-card p {
+  margin: 0;
+}
+
 .photo-input-grid {
   display: grid;
   gap: 0.55rem;

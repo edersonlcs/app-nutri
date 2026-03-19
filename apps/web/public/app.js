@@ -15,6 +15,7 @@ const state = {
     dashboard: null,
     profile: null,
     aiInfo: null,
+    systemUsage: null,
     reports: [],
     measurements: [],
     measurementsAll: [],
@@ -73,6 +74,18 @@ function fmtNumber(value, digits = 1) {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   });
+}
+
+function fmtBytes(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return "-";
+  if (parsed < 1024) return `${fmtNumber(parsed, 0)} B`;
+  const kb = parsed / 1024;
+  if (kb < 1024) return `${fmtNumber(kb, 1)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${fmtNumber(mb, 1)} MB`;
+  const gb = mb / 1024;
+  return `${fmtNumber(gb, 2)} GB`;
 }
 
 function toNumberOrNull(value) {
@@ -776,6 +789,93 @@ function fillProfileBaseForm(profile) {
   if (routineNotesInput) routineNotesInput.value = profile?.routine_notes || "";
 }
 
+function systemUsageCardHtml(title, value, note = "") {
+  return `
+    <article class="system-usage-card">
+      <h4>${escapeHtml(title)}</h4>
+      <p><strong>${escapeHtml(value)}</strong></p>
+      <p class="muted">${escapeHtml(note || "-")}</p>
+    </article>
+  `;
+}
+
+function renderSystemUsagePanel() {
+  const summaryNode = document.getElementById("system-usage-summary");
+  const countsNode = document.getElementById("system-usage-user-counts");
+  const metaNode = document.getElementById("system-usage-meta");
+  if (!summaryNode || !countsNode || !metaNode) return;
+
+  const usage = state.cache.systemUsage || null;
+  if (!usage) {
+    summaryNode.innerHTML = emptyState("Não foi possível carregar o uso do sistema agora.");
+    countsNode.innerHTML = "";
+    metaNode.textContent = "Sem dados de uso disponíveis.";
+    return;
+  }
+
+  const project = usage.project_local || {};
+  const uploads = usage.uploads_local || {};
+  const db = usage.supabase?.database || {};
+  const storage = usage.supabase?.storage || {};
+  const user = usage.user || {};
+
+  const dbSizeLabel = db.size_bytes === null || db.size_bytes === undefined
+    ? "indisponível"
+    : `${fmtBytes(db.size_bytes)} / ${fmtNumber(db.limit_mb, 0)} MB`;
+  const dbPctLabel = db.usage_pct === null || db.usage_pct === undefined
+    ? "sem percentual"
+    : `${fmtNumber(db.usage_pct, 2)}% em uso`;
+
+  summaryNode.innerHTML = [
+    systemUsageCardHtml(
+      "Projeto local",
+      fmtBytes(project.size_bytes),
+      project.path || "/home/edersonlcs/edevida"
+    ),
+    systemUsageCardHtml(
+      "Banco Supabase",
+      dbSizeLabel,
+      db.error ? `erro: ${db.error}` : dbPctLabel
+    ),
+    systemUsageCardHtml(
+      "Storage Supabase",
+      storage.buckets_count === null || storage.buckets_count === undefined
+        ? "indisponível"
+        : `${fmtNumber(storage.buckets_count, 0)} bucket(s)`,
+      storage.error ? `erro: ${storage.error}` : `limite de referência: ${fmtNumber(storage.limit_mb, 0)} MB`
+    ),
+    systemUsageCardHtml(
+      "Uploads locais",
+      `${fmtBytes(uploads.size_bytes)} (${fmtNumber(uploads.files_count, 0)} arquivo(s))`,
+      uploads.path || "temp/uploads"
+    ),
+  ].join("");
+
+  const counts = user.counts || {};
+  const countCards = [
+    ["perfil", "Perfil"],
+    ["medidas_corporais", "Medidas corporais"],
+    ["bioimpedancia", "Bioimpedância"],
+    ["exames", "Exames"],
+    ["alimentacao", "Alimentação"],
+    ["hidratacao", "Hidratação"],
+    ["treinos", "Treinos"],
+    ["interacoes_ia", "Interações IA"],
+    ["updates_telegram", "Updates Telegram"],
+  ];
+
+  countsNode.innerHTML = countCards.map(([key, label]) =>
+    systemUsageCardHtml(
+      label,
+      fmtNumber(counts[key], 0),
+      "contagem atual"
+    )
+  ).join("");
+
+  const generatedAt = usage.generated_at ? fmtDateTime(usage.generated_at) : "-";
+  metaNode.textContent = `Atualizado em ${generatedAt}. Usuário principal: ${user.display_name || "Usuário"}.`;
+}
+
 function renderCadastroPanel() {
   const profile = state.cache.profile || null;
   fillProfileBaseForm(profile);
@@ -807,6 +907,7 @@ function renderCadastroPanel() {
   const entries = sortAscByDate(measurementsSource, "recorded_at").reverse().slice(0, 12);
   if (!entries.length) {
     historyNode.innerHTML = emptyState("Sem registros de cadastro ainda.");
+    renderSystemUsagePanel();
     return;
   }
 
@@ -842,6 +943,8 @@ function renderCadastroPanel() {
       </article>
     `;
   }).join("");
+
+  renderSystemUsagePanel();
 }
 
 function renderProgressPhotos() {
@@ -3722,10 +3825,11 @@ async function loadAllData() {
     ...filterParams,
   };
 
-  const [dashboard, profile, aiInfo, reports, measurements, measurementsAll, bioimpedance, bioimpedanceAll, exams, examsAll, hydration, workouts, nutrition, nutritionWeek] = await Promise.all([
+  const [dashboard, profile, aiInfo, systemUsage, reports, measurements, measurementsAll, bioimpedance, bioimpedanceAll, exams, examsAll, hydration, workouts, nutrition, nutritionWeek] = await Promise.all([
     apiJson(`/api/dashboard/overview?${queryStringFromObject({ user_id: userId })}`),
     apiJson(`/api/profile?${queryStringFromObject({ user_id: userId })}`),
     apiJson(`/api/ai/info?${queryStringFromObject({ user_id: userId })}`).catch((error) => ({ ok: false, error: error.message })),
+    apiJson(`/api/system/usage?${queryStringFromObject({ user_id: userId })}`).catch((error) => ({ ok: false, error: error.message })),
     apiJson(`/api/reports?${queryStringFromObject({ user_id: userId, period: "daily", limit: 14 })}`),
     apiJson(`/api/measurements?${queryStringFromObject({ ...common, limit: 200 })}`),
     apiJson(`/api/measurements?${queryStringFromObject({ user_id: userId, limit: 300 })}`),
@@ -3742,6 +3846,7 @@ async function loadAllData() {
   state.cache.dashboard = dashboard;
   state.cache.profile = profile.profile || dashboard?.overview?.profile || null;
   state.cache.aiInfo = aiInfo || null;
+  state.cache.systemUsage = systemUsage?.usage || null;
   state.cache.reports = reports.reports || [];
   state.cache.measurements = measurements.measurements || [];
   state.cache.measurementsAll = measurementsAll.measurements || [];

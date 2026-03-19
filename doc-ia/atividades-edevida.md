@@ -652,6 +652,13 @@ Entregue:
     - `PATCH /api/medical-exams/:id`
     - `DELETE /api/medical-exams/:id`
     - `DELETE /api/bioimpedance/:id`
+  - aba `Cadastro` atualizada para `Info` (sem criar nova aba), com bloco de monitoramento de uso:
+    - tamanho local do projeto
+    - tamanho do banco Supabase + percentual sobre limite configurado
+    - quantidade de buckets no Storage
+    - contagem dos principais registros do usuario
+  - novo endpoint para esse painel:
+    - `GET /api/system/usage`
 
 ### Atividade 12 - Deploy VPS
 
