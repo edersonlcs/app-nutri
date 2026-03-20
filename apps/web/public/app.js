@@ -315,6 +315,9 @@ function setStatus(message, type = "info") {
   node.textContent = message;
   node.classList.remove(...STATUS_CLASSES);
   node.classList.add(`status-${type}`);
+  window.requestAnimationFrame(() => {
+    syncStickyMobileShellHeight();
+  });
 }
 
 function writeOutput(id, value) {
@@ -4534,6 +4537,51 @@ async function refreshAllWithStatus(successMessage = "Dados atualizados.", optio
   }
   await loadAllData();
   setStatus(successMessage, "success");
+  syncStickyMobileShellHeight();
+}
+
+let stickyShellObserver = null;
+
+function syncStickyMobileShellHeight() {
+  const shell = document.querySelector(".sticky-mobile-shell");
+  const spacer = document.getElementById("sticky-mobile-spacer");
+  if (!shell || !spacer) return;
+
+  const isMobile = window.matchMedia("(max-width: 700px)").matches;
+  if (!isMobile) {
+    spacer.style.height = "0px";
+    document.documentElement.style.removeProperty("--sticky-mobile-shell-height");
+    return;
+  }
+
+  const shellHeight = Math.ceil(shell.getBoundingClientRect().height || 0);
+  const safeGap = 10;
+  const finalHeight = Math.max(0, shellHeight + safeGap);
+  const value = `${finalHeight}px`;
+  spacer.style.height = value;
+  document.documentElement.style.setProperty("--sticky-mobile-shell-height", value);
+}
+
+function setupStickyMobileShell() {
+  syncStickyMobileShellHeight();
+  window.addEventListener("resize", syncStickyMobileShellHeight);
+  window.addEventListener("orientationchange", syncStickyMobileShellHeight);
+
+  const shell = document.querySelector(".sticky-mobile-shell");
+  if (!shell || typeof ResizeObserver === "undefined") return;
+
+  if (stickyShellObserver) {
+    try {
+      stickyShellObserver.disconnect();
+    } catch {
+      // ignore
+    }
+  }
+
+  stickyShellObserver = new ResizeObserver(() => {
+    syncStickyMobileShellHeight();
+  });
+  stickyShellObserver.observe(shell);
 }
 
 function setupDateFilter() {
@@ -5274,6 +5322,7 @@ function setupForms() {
 async function boot() {
   setupTabs();
   setupDateFilter();
+  setupStickyMobileShell();
   setupActions();
   setupForms();
   setupAuthForm();

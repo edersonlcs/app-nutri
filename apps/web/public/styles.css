@@ -238,6 +238,10 @@ body {
   display: contents;
 }
 
+.sticky-mobile-spacer {
+  display: none;
+}
+
 .filters-card {
   display: grid;
   gap: 0.45rem;
@@ -2451,7 +2455,7 @@ body {
   .layout {
     width: 100%;
     max-width: 100%;
-    margin-top: calc(env(safe-area-inset-top) + 0.02rem);
+    margin-top: 0;
     margin-bottom: 0.6rem;
     margin-left: 0;
     margin-right: 0;
@@ -2462,10 +2466,22 @@ body {
   .sticky-mobile-shell {
     display: grid;
     gap: 0.38rem;
-    position: sticky;
-    top: calc(env(safe-area-inset-top) - 0.02rem);
-    z-index: 40;
-    margin-bottom: 0.15rem;
+    position: fixed;
+    left: 0.52rem;
+    right: 0.52rem;
+    top: calc(env(safe-area-inset-top) + 0.01rem);
+    z-index: 70;
+    pointer-events: none;
+  }
+
+  .sticky-mobile-shell > * {
+    pointer-events: auto;
+  }
+
+  .sticky-mobile-spacer {
+    display: block;
+    width: 100%;
+    height: var(--sticky-mobile-shell-height, 164px);
   }
 
   .card,
