@@ -4538,6 +4538,17 @@ function setupDateFilter() {
     await applyFilterAndRefresh("Aplicando filtro de data...", "Filtro aplicado.", "Erro ao aplicar filtro");
   });
 
+  fromInput.addEventListener("change", async () => {
+    toInput.value = fromInput.value || toInput.value;
+    syncFilterStateFromInputs();
+    await applyFilterAndRefresh("Aplicando data...", "Dia aplicado.", "Erro ao aplicar data");
+  });
+
+  toInput.addEventListener("change", async () => {
+    syncFilterStateFromInputs();
+    await applyFilterAndRefresh("Aplicando data...", "Dia aplicado.", "Erro ao aplicar data");
+  });
+
   clearButton.addEventListener("click", async () => {
     const fallbackDate = todayInputValue();
     const normalized = normalizeFilterRange(fallbackDate, fallbackDate, fallbackDate);

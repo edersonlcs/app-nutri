@@ -2369,8 +2369,9 @@ h4,
 
 html,
 body {
-  overflow-x: clip;
+  width: 100%;
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 .tabs {
@@ -2383,15 +2384,28 @@ body {
   }
 
   .layout {
-    width: calc(100vw - 0.8rem);
-    margin-top: calc(env(safe-area-inset-top) + 0.58rem);
-    margin-left: auto;
-    margin-right: auto;
-    overflow-x: clip;
+    width: 100%;
+    max-width: 100%;
+    margin-top: calc(env(safe-area-inset-top) + 0.2rem);
+    margin-left: 0;
+    margin-right: 0;
+    padding-inline: 0.52rem;
+    overflow-x: hidden;
+  }
+
+  .card,
+  .tab-panel,
+  .metrics,
+  .metrics-top,
+  .bio-metrics,
+  .profile-grid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .tabs {
-    top: calc(env(safe-area-inset-top) + 0.12rem);
+    top: calc(env(safe-area-inset-top) + 0.08rem);
     width: 100%;
     max-width: 100%;
     display: flex;
@@ -2400,74 +2414,83 @@ body {
     overflow-y: hidden;
   }
 
-  .tab-panel {
-    min-width: 0;
-    max-width: 100%;
+  .tabs .tab-button {
+    flex: 0 0 auto;
+  }
+
+  .filters-card {
+    padding: 0.5rem 0.52rem;
+    gap: 0.24rem;
+  }
+
+  .filters-card h3 {
+    font-size: 0.72rem;
+    margin-bottom: 0;
   }
 
   .filters-row {
     display: grid !important;
-    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 28px 54px 54px;
-    gap: 0.14rem;
+    grid-template-columns: 30px minmax(0, 1fr) 30px 60px;
+    grid-template-areas: "prev from next today";
+    gap: 0.22rem;
     align-items: center;
-    overflow: hidden;
     width: 100%;
+    overflow: visible !important;
   }
 
   #filter-prev-day {
-    grid-column: 1;
-    grid-row: 1;
+    grid-area: prev;
   }
 
   .filter-from-field {
-    grid-column: 2;
-    grid-row: 1;
-    min-width: 0;
-  }
-
-  .filter-to-field {
-    grid-column: 3;
-    grid-row: 1;
-    min-width: 0;
+    grid-area: from;
+    min-width: 0 !important;
+    max-width: none !important;
   }
 
   #filter-next-day {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .filter-apply-btn {
-    grid-column: 5;
-    grid-row: 1;
+    grid-area: next;
   }
 
   .filter-today-btn {
-    grid-column: 6;
-    grid-row: 1;
+    grid-area: today;
+    min-width: 60px;
+  }
+
+  .filter-to-field,
+  .filter-apply-btn,
+  .filter-separator,
+  .filter-summary {
+    display: none !important;
   }
 
   .compact-field input {
     width: 100%;
     min-width: 0;
-    min-height: 29px;
-    padding: 0.2rem 0.24rem;
-    font-size: 0.72rem;
+    min-height: 32px;
+    padding: 0.34rem 0.42rem;
+    font-size: 0.8rem;
   }
 
   .filter-nav-btn {
-    width: 28px;
-    min-width: 28px;
-    min-height: 29px;
-    font-size: 0.66rem;
-    padding: 0.08rem;
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0.18rem;
+    font-size: 0.78rem;
   }
 
-  .filter-apply-btn,
   .filter-today-btn {
-    min-height: 29px;
-    min-width: 54px;
-    padding: 0.14rem 0.18rem;
-    font-size: 0.66rem;
-    border-radius: 7px;
+    min-height: 32px;
+    padding: 0.22rem 0.34rem;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+
+  .status-inline {
+    margin-top: 0;
+    padding: 0.24rem 0.36rem;
+    font-size: 0.64rem;
+    border-radius: 8px;
   }
 }
