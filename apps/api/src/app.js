@@ -23,6 +23,10 @@ function createApp() {
     res.sendFile(path.join(webPublicPath, "index.html"));
   });
 
+  app.get("/painel-classic", (_req, res) => {
+    res.sendFile(path.join(webPublicPath, "index.classic.html"));
+  });
+
   app.use(apiRoutes);
 
   app.use(notFoundHandler);
