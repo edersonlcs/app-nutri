@@ -2380,13 +2380,14 @@ body {
 
 @media (max-width: 700px) {
   body {
+    padding-top: 0 !important;
     overflow-x: hidden;
   }
 
   .layout {
     width: 100%;
     max-width: 100%;
-    margin-top: calc(env(safe-area-inset-top) + 0.2rem);
+    margin-top: calc(env(safe-area-inset-top) + 0.08rem);
     margin-left: 0;
     margin-right: 0;
     padding-inline: 0.52rem;
@@ -2405,7 +2406,7 @@ body {
   }
 
   .tabs {
-    top: calc(env(safe-area-inset-top) + 0.08rem);
+    top: calc(env(safe-area-inset-top) + 0.02rem);
     width: 100%;
     max-width: 100%;
     display: flex;
@@ -2430,9 +2431,9 @@ body {
 
   .filters-row {
     display: grid !important;
-    grid-template-columns: 30px minmax(0, 1fr) 30px 60px;
-    grid-template-areas: "prev from next today";
-    gap: 0.22rem;
+    grid-template-columns: 30px minmax(0, 1fr) 20px minmax(0, 1fr) 30px 56px 56px;
+    grid-template-areas: "prev from sep to next apply today";
+    gap: 0.18rem;
     align-items: center;
     width: 100%;
     overflow: visible !important;
@@ -2448,18 +2449,38 @@ body {
     max-width: none !important;
   }
 
+  .filter-separator {
+    grid-area: sep;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    font-size: 0.58rem;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    color: #6f7684;
+  }
+
+  .filter-to-field {
+    grid-area: to;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
   #filter-next-day {
     grid-area: next;
   }
 
-  .filter-today-btn {
-    grid-area: today;
-    min-width: 60px;
+  .filter-apply-btn {
+    grid-area: apply;
+    min-width: 56px;
   }
 
-  .filter-to-field,
-  .filter-apply-btn,
-  .filter-separator,
+  .filter-today-btn {
+    grid-area: today;
+    min-width: 56px;
+  }
+
   .filter-summary {
     display: none !important;
   }
@@ -2467,23 +2488,24 @@ body {
   .compact-field input {
     width: 100%;
     min-width: 0;
-    min-height: 32px;
-    padding: 0.34rem 0.42rem;
-    font-size: 0.8rem;
+    min-height: 31px;
+    padding: 0.3rem 0.3rem;
+    font-size: 0.7rem;
   }
 
   .filter-nav-btn {
     width: 100%;
     min-width: 0;
-    min-height: 32px;
+    min-height: 31px;
     padding: 0.18rem;
-    font-size: 0.78rem;
+    font-size: 0.7rem;
   }
 
+  .filter-apply-btn,
   .filter-today-btn {
-    min-height: 32px;
-    padding: 0.22rem 0.34rem;
-    font-size: 0.72rem;
+    min-height: 31px;
+    padding: 0.2rem 0.18rem;
+    font-size: 0.66rem;
     border-radius: 8px;
   }
 
