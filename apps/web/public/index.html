@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/web/styles.css?v=20260319n" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260319o" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -33,23 +33,6 @@
     </section>
 
     <main class="layout">
-      <header class="hero card">
-        <p class="eyebrow">Painel pessoal</p>
-        <h1>EdeVida</h1>
-        <p class="subtitle">
-          Nutrição, hidratação, exames, bioimpedância, treino e evolução física em um só painel.
-        </p>
-        <div id="auth-user-bar" class="auth-user-bar is-hidden">
-          <span id="auth-user-label" class="muted">Sessão autenticada</span>
-          <button id="auth-logout-btn" class="btn-ghost" type="button">Sair</button>
-        </div>
-        <div class="hero-actions">
-          <button id="refresh-dashboard" class="btn-primary">Atualizar tudo</button>
-          <button id="generate-daily-report" class="btn-secondary">Gerar relatório do período</button>
-        </div>
-        <div id="status-message" class="status-message">Carregando dados...</div>
-      </header>
-
       <nav id="tabs-nav" class="tabs card">
         <button class="tab-button is-active" data-tab="dashboard">Dashboard</button>
         <button class="tab-button" data-tab="nutricao">Nutrição</button>
@@ -59,6 +42,10 @@
         <button class="tab-button" data-tab="historico">Histórico</button>
         <button class="tab-button" data-tab="cadastro">Info</button>
         <button class="tab-button" data-tab="ia">IA</button>
+        <div id="auth-user-bar" class="auth-user-bar is-hidden">
+          <span id="auth-user-label" class="muted">Sessão autenticada</span>
+          <button id="auth-logout-btn" class="btn-ghost" type="button">Sair</button>
+        </div>
       </nav>
 
       <section class="card filters-card">
@@ -66,23 +53,26 @@
         <form id="date-filter-form" class="filters-row">
           <button class="btn-ghost filter-nav-btn" type="button" id="filter-prev-day" aria-label="Dia anterior" title="Dia anterior">◀</button>
 
-          <label class="filter-field">
-            <span>De</span>
+          <label class="filter-field compact-field filter-from-field">
+            <span class="sr-only">De</span>
             <input id="filter-from" name="from" type="date" />
           </label>
 
-          <label class="filter-field">
-            <span>Até</span>
+          <span class="filter-separator" aria-hidden="true">até</span>
+
+          <label class="filter-field compact-field filter-to-field">
+            <span class="sr-only">Até</span>
             <input id="filter-to" name="to" type="date" />
           </label>
 
           <button class="btn-ghost filter-nav-btn" type="button" id="filter-next-day" aria-label="Próximo dia" title="Próximo dia">▶</button>
 
-          <button class="btn-secondary" type="submit">Aplicar filtro</button>
-          <button class="btn-ghost" type="button" id="clear-date-filter">Hoje</button>
+          <button class="btn-secondary filter-apply-btn" type="submit">Aplicar</button>
+          <button class="btn-ghost filter-today-btn" type="button" id="clear-date-filter">Hoje</button>
 
           <p id="filter-summary" class="muted filter-summary">Período: últimos 30 dias</p>
         </form>
+        <div id="status-message" class="status-message status-inline">Carregando dados...</div>
       </section>
 
       <section id="tab-dashboard" class="tab-panel is-active">
@@ -692,6 +682,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/web/app.js?v=20260319n" type="module"></script>
+    <script src="/web/app.js?v=20260319o" type="module"></script>
   </body>
 </html>
