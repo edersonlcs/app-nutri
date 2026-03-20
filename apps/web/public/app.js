@@ -5,6 +5,7 @@ const state = {
     activeTab: "dashboard",
     pendingDashboardChartsRender: false,
     pendingExamPanelRender: false,
+    quickMealSlot: "",
   },
   auth: {
     config: null,
@@ -2057,6 +2058,7 @@ function activateTabByName(tabName) {
 
 function openQuickMealRegister(slotKey) {
   const normalizedSlot = MEAL_SLOTS.some((item) => item.key === slotKey) ? slotKey : "outro";
+  state.ui.quickMealSlot = normalizedSlot;
   activateTabByName("registros");
 
   const draftSlotSelect = document.querySelector('#nutrition-draft-form select[name="meal_slot"]');
@@ -2064,18 +2066,18 @@ function openQuickMealRegister(slotKey) {
     draftSlotSelect.value = normalizedSlot;
   }
 
-  const modeSelect = document.querySelector('#nutrition-form select[name="mode"]');
-  if (modeSelect && modeSelect.value !== "save") {
-    modeSelect.value = "draft";
+  const quickPhotoSlotSelect = document.querySelector('#nutrition-image-form select[name="quick_meal_slot"]');
+  if (quickPhotoSlotSelect) {
+    quickPhotoSlotSelect.value = normalizedSlot;
   }
 
   window.setTimeout(() => {
-    document.getElementById("registro-alimentos")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const textArea = document.querySelector('#nutrition-form textarea[name="text"]');
-    textArea?.focus();
+    const photoCard = document.getElementById("food-card-photo");
+    photoCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+    photoCard?.querySelector('input[name="file_camera"]')?.focus();
   }, 120);
 
-  setStatus(`Registro rápido aberto para ${mealSlotLabel(normalizedSlot)}.`, "info");
+  setStatus(`Registro rápido (${mealSlotLabel(normalizedSlot)}): use "Tirar foto agora".`, "info");
 }
 
 function mealSlotOptionsHtml(selectedSlot) {
@@ -4909,6 +4911,8 @@ function setupForms() {
       const cameraFile = nutritionImageForm.querySelector("input[name='file_camera']")?.files?.[0] || null;
       const galleryFile = nutritionImageForm.querySelector("input[name='file_gallery']")?.files?.[0] || null;
       const selectedFile = cameraFile || galleryFile;
+      const quickMealSlotRaw = String(formData.get("quick_meal_slot") || state.ui.quickMealSlot || "").trim();
+      const quickMealSlot = MEAL_SLOTS.some((item) => item.key === quickMealSlotRaw) ? quickMealSlotRaw : "";
 
       if (!selectedFile) {
         throw new Error("Selecione uma imagem pela câmera ou galeria antes de analisar.");
@@ -4916,13 +4920,18 @@ function setupForms() {
 
       formData.delete("file_camera");
       formData.delete("file_gallery");
+      formData.delete("quick_meal_slot");
       formData.set("file", selectedFile);
       formData.set("user_id", userId);
       formData.set("persist", "false");
       const result = await apiFormData("/api/nutrition/analyze-image", formData);
       setNutritionDraftFromAnalysis(result, "foto");
+      if (quickMealSlot && state.nutritionDraft?.analysis) {
+        state.nutritionDraft.analysis.meal_slot = quickMealSlot;
+      }
       renderNutritionDraftPreview();
       nutritionImageForm.reset();
+      state.ui.quickMealSlot = "";
       setStatus("Foto analisada e adicionada ao rascunho.", "success");
     } catch (err) {
       writeOutput("nutrition-draft-preview", `Erro: ${err.message}`);

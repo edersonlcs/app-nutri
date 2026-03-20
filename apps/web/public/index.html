@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/web/styles.css?v=20260320e" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260320f" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -367,46 +367,56 @@
               </div>
             </header>
             <section class="registros-grid food-grid">
-              <article id="food-card-text" class="card food-card food-card-text">
-                <h3>Analisar alimentação (texto)</h3>
-                <form id="nutrition-form" class="stack">
-                  <select name="mode">
-                    <option value="chat">Somente conversar (sem registrar)</option>
-                    <option value="draft">Analisar para rascunho (sem gravar)</option>
-                    <option value="save">Analisar e gravar (direto)</option>
+              <article id="food-card-photo" class="card food-card food-card-photo">
+                <h3>Registro principal (foto na hora)</h3>
+                <form id="nutrition-image-form" class="stack">
+                  <select name="quick_meal_slot">
+                    <option value="">Grupo detectado automaticamente</option>
+                    <option value="cafe_da_manha">Café da manhã</option>
+                    <option value="lanche_da_manha">Lanche da manhã</option>
+                    <option value="almoco">Almoço</option>
+                    <option value="lanche_da_tarde">Lanche da tarde</option>
+                    <option value="janta">Janta</option>
+                    <option value="ceia">Ceia</option>
+                    <option value="outro">Outro</option>
                   </select>
-                  <textarea
-                    name="text"
-                    rows="4"
-                    placeholder="Ex.: Estou com vontade de doce agora, como ajusto meu dia?"
-                    required
-                  ></textarea>
-                  <button class="btn-primary" type="submit">Enviar mensagem</button>
+                  <div class="photo-input-grid">
+                    <label class="photo-input-option">
+                      <span>Tirar foto agora</span>
+                      <input name="file_camera" type="file" accept="image/*" capture="environment" />
+                    </label>
+                    <label class="photo-input-option">
+                      <span>Escolher da galeria</span>
+                      <input name="file_gallery" type="file" accept="image/*" />
+                    </label>
+                  </div>
+                  <p class="muted">Fluxo rápido: tire a foto, analise e finalize no rascunho.</p>
+                  <input name="caption" type="text" placeholder="Legenda opcional da refeição" />
+                  <button class="btn-primary" type="submit">Analisar foto para rascunho</button>
                 </form>
-                <div id="nutrition-chat-thread" class="chat-thread">
-                  <p class="muted">Conversa aberta. Você pode perguntar livremente por aqui.</p>
-                </div>
-                <button id="nutrition-chat-clear" class="btn-ghost" type="button">Limpar conversa</button>
               </article>
 
-              <article id="food-card-photo" class="card food-card food-card-photo">
+              <article id="food-card-text" class="card food-card food-card-text">
                 <details class="registros-collapse-card">
-                  <summary>Analisar alimentação (foto)</summary>
-                  <form id="nutrition-image-form" class="stack">
-                    <div class="photo-input-grid">
-                      <label class="photo-input-option">
-                        <span>Tirar foto agora</span>
-                        <input name="file_camera" type="file" accept="image/*" capture="environment" />
-                      </label>
-                      <label class="photo-input-option">
-                        <span>Escolher da galeria</span>
-                        <input name="file_gallery" type="file" accept="image/*" />
-                      </label>
-                    </div>
-                    <p class="muted">No celular: use câmera ou galeria. No computador: escolha da galeria.</p>
-                    <input name="caption" type="text" placeholder="Legenda opcional da refeição" />
-                    <button class="btn-primary" type="submit">Analisar foto para rascunho</button>
+                  <summary>Texto / conversa com IA</summary>
+                  <form id="nutrition-form" class="stack">
+                    <select name="mode">
+                      <option value="chat">Somente conversar (sem registrar)</option>
+                      <option value="draft">Analisar para rascunho (sem gravar)</option>
+                      <option value="save">Analisar e gravar (direto)</option>
+                    </select>
+                    <textarea
+                      name="text"
+                      rows="4"
+                      placeholder="Ex.: Estou com vontade de doce agora, como ajusto meu dia?"
+                      required
+                    ></textarea>
+                    <button class="btn-primary" type="submit">Enviar mensagem</button>
                   </form>
+                  <div id="nutrition-chat-thread" class="chat-thread">
+                    <p class="muted">Conversa aberta. Você pode perguntar livremente por aqui.</p>
+                  </div>
+                  <button id="nutrition-chat-clear" class="btn-ghost" type="button">Limpar conversa</button>
                 </details>
               </article>
 
@@ -677,6 +687,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/web/app.js?v=20260320c" type="module"></script>
+    <script src="/web/app.js?v=20260320d" type="module"></script>
   </body>
 </html>

@@ -235,8 +235,7 @@ body {
 }
 
 .sticky-mobile-shell {
-  display: grid;
-  gap: 0.55rem;
+  display: contents;
 }
 
 .filters-card {
@@ -556,7 +555,7 @@ body {
 .registros-quick-actions {
   margin-top: 0.55rem;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.36rem;
 }
 
@@ -648,7 +647,7 @@ body {
 .food-grid {
   display: grid;
   gap: 0.8rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -738,7 +737,9 @@ body {
 }
 
 .food-card-photo {
+  grid-column: 1 / -1;
   border-left: 4px solid rgba(38, 124, 183, 0.58);
+  background: linear-gradient(180deg, rgba(236, 246, 255, 0.86), rgba(255, 255, 255, 0.9));
 }
 
 .food-card-audio {
@@ -2459,6 +2460,8 @@ body {
   }
 
   .sticky-mobile-shell {
+    display: grid;
+    gap: 0.38rem;
     position: sticky;
     top: calc(env(safe-area-inset-top) - 0.02rem);
     z-index: 40;
