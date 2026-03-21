@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="/web/styles.css?v=20260321c" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260321d" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -41,9 +41,9 @@
           <button class="tab-button" data-tab="registros">Registros</button>
           <button class="tab-button" data-tab="anexos">Anexos</button>
           <button class="tab-button" data-tab="exames">Exames</button>
-          <button class="tab-button" data-tab="historico">Histórico</button>
           <button class="tab-button" data-tab="cadastro">Info</button>
           <button class="tab-button" data-tab="ia">IA</button>
+          <button class="tab-button" data-tab="historico">Histórico</button>
           <div id="auth-user-bar" class="auth-user-bar is-hidden">
             <span id="auth-user-label" class="muted">Sessão autenticada</span>
             <button id="auth-logout-btn" class="btn-ghost" type="button">Sair</button>
@@ -197,51 +197,51 @@
       <section id="tab-nutricao" class="tab-panel">
         <section class="metrics nutrition-metrics">
           <article class="metric card">
-            <h2>Água no período</h2>
+            <h2><i class="bi bi-droplet-half section-title-icon icon-water" aria-hidden="true"></i>Água no período</h2>
             <p id="nutrition-water-total" class="metric-value">-</p>
             <p id="nutrition-water-sub" class="metric-sub">consumido / ideal</p>
             <p id="nutrition-water-distribution" class="metric-sub">distribuição sugerida</p>
           </article>
 
           <article class="metric card">
-            <h2>Exercícios no período</h2>
+            <h2><i class="bi bi-fire section-title-icon icon-workout" aria-hidden="true"></i>Exercícios no período</h2>
             <p id="nutrition-workouts-total" class="metric-value">-</p>
             <p id="nutrition-workouts-minutes" class="metric-sub">0 min</p>
             <p id="nutrition-workouts-calories" class="metric-sub">0 kcal estimadas</p>
           </article>
 
           <article class="metric card">
-            <h2>Refeições no período</h2>
+            <h2><i class="bi bi-egg-fried section-title-icon icon-meal" aria-hidden="true"></i>Refeições no período</h2>
             <p id="nutrition-total-entries" class="metric-value">-</p>
             <p class="metric-sub">entradas analisadas</p>
           </article>
 
           <article class="metric card">
-            <h2>Calorias no período</h2>
+            <h2><i class="bi bi-lightning-charge section-title-icon icon-calories" aria-hidden="true"></i>Calorias no período</h2>
             <p id="nutrition-calories-total" class="metric-value">-</p>
             <p id="nutrition-calories-meta" class="metric-sub">meta diária --</p>
           </article>
         </section>
 
         <article class="card">
-          <h3>Dashboard alimentar</h3>
+          <h3><i class="bi bi-grid-1x2-fill section-title-icon icon-dashboard" aria-hidden="true"></i>Dashboard alimentar</h3>
           <div id="nutrition-slot-cards" class="meal-grid"></div>
         </article>
 
         <article class="card nutrition-insight-panel">
-          <h3>Macros e sinais de risco (dia)</h3>
+          <h3><i class="bi bi-bar-chart-fill section-title-icon icon-risk" aria-hidden="true"></i>Macros e sinais de risco (dia)</h3>
           <div id="nutrition-macros-overview" class="macro-grid"></div>
         </article>
 
         <article class="card nutrition-weekly-panel nutrition-insight-panel">
-          <h3>Análise semanal por grupo</h3>
+          <h3><i class="bi bi-calendar-week-fill section-title-icon icon-weekly" aria-hidden="true"></i>Análise semanal por grupo</h3>
           <div id="nutrition-weekly-groups" class="weekly-group-grid"></div>
         </article>
       </section>
 
       <section id="tab-cadastro" class="tab-panel">
         <article class="card registros-overview">
-          <h3>Info e evolução corporal</h3>
+          <h3><i class="bi bi-person-badge section-title-icon icon-info" aria-hidden="true"></i>Info e evolução corporal</h3>
           <p class="muted">Tudo que é base do seu perfil e acompanhamento corporal fica concentrado aqui.</p>
           <div class="registros-legend">
             <span class="tag quality-default">Perfil base</span>
@@ -252,12 +252,12 @@
 
         <article class="card registros-section">
           <header class="registros-section-header">
-            <h3>Cadastro base e evolução</h3>
+            <h3><i class="bi bi-clipboard2-pulse section-title-icon icon-dashboard" aria-hidden="true"></i>Cadastro base e evolução</h3>
             <p class="muted">Use essa aba para configuração inicial e atualizações corporais.</p>
           </header>
           <section class="grid-2 registros-grid">
             <article class="card">
-              <h3>Perfil base</h3>
+              <h3><i class="bi bi-person-vcard section-title-icon icon-info" aria-hidden="true"></i>Perfil base</h3>
               <form id="profile-form" class="stack">
                 <input name="height_cm" type="number" step="0.1" placeholder="Altura (cm)" />
                 <input name="baseline_weight_kg" type="number" step="0.1" placeholder="Peso base (kg)" />
@@ -275,7 +275,7 @@
             </article>
 
             <article class="card">
-              <h3>Foto de evolução corporal (com medidas)</h3>
+              <h3><i class="bi bi-camera section-title-icon icon-upload" aria-hidden="true"></i>Foto de evolução corporal (com medidas)</h3>
               <form id="measurement-photo-form" class="stack two-cols">
                 <input name="recorded_at" type="datetime-local" />
                 <input name="weight_kg" type="number" step="0.1" placeholder="Peso (kg)" />
@@ -303,7 +303,7 @@
             </article>
 
             <article class="card">
-              <h3>Medidas corporais (manual)</h3>
+              <h3><i class="bi bi-rulers section-title-icon icon-history" aria-hidden="true"></i>Medidas corporais (manual)</h3>
               <form id="measurement-form" class="stack two-cols">
                 <input name="weight_kg" type="number" step="0.1" placeholder="Peso (kg)" required />
                 <input name="chest_cm" type="number" step="0.1" placeholder="Peito (cm)" />
@@ -320,12 +320,12 @@
           </section>
 
           <article class="card">
-            <h3>Histórico rápido do cadastro</h3>
+            <h3><i class="bi bi-clock-history section-title-icon icon-history" aria-hidden="true"></i>Histórico rápido do cadastro</h3>
             <div id="cadastro-history-list" class="history-list"></div>
           </article>
 
           <article class="card">
-            <h3>Info de uso do sistema</h3>
+            <h3><i class="bi bi-hdd-network section-title-icon icon-info" aria-hidden="true"></i>Info de uso do sistema</h3>
             <p class="muted">Monitoramento local + Supabase para acompanhar crescimento e planejar custos.</p>
             <div id="system-usage-summary" class="system-usage-grid"></div>
             <div id="system-usage-user-counts" class="system-usage-grid system-usage-counts"></div>
@@ -336,13 +336,13 @@
 
       <section id="tab-registros" class="tab-panel">
         <article class="card registros-unified-card">
-          <h3>Lançamentos do dia a dia</h3>
+          <h3><i class="bi bi-journal-plus section-title-icon icon-register" aria-hidden="true"></i>Lançamentos do dia a dia</h3>
           <div class="registros-mode-buttons">
-            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="texto">Texto</button>
-            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="foto">Foto</button>
-            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="voz">Voz</button>
-            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="agua">Água</button>
-            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="treino">Treino</button>
+            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="texto"><i class="bi bi-chat-dots-fill" aria-hidden="true"></i>Texto</button>
+            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="foto"><i class="bi bi-camera-fill" aria-hidden="true"></i>Foto</button>
+            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="voz"><i class="bi bi-mic-fill" aria-hidden="true"></i>Voz</button>
+            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="agua"><i class="bi bi-cup-straw" aria-hidden="true"></i>Água</button>
+            <button class="btn-ghost registro-mode-btn" type="button" data-registro-mode="treino"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>Treino</button>
           </div>
           <p id="registro-mode-hint" class="muted">Sem modo selecionado: o chat funciona como conversa livre com a IA (sem registro automático).</p>
 
@@ -458,7 +458,7 @@
       <section id="tab-anexos" class="tab-panel">
         <section class="grid-2">
           <article class="card">
-            <h3>Anexo de bioimpedância (imagem)</h3>
+            <h3><i class="bi bi-image section-title-icon icon-upload" aria-hidden="true"></i>Anexo de bioimpedância (imagem)</h3>
             <form id="bioimpedance-upload-form" class="stack">
               <input name="recorded_at" type="datetime-local" />
               <div class="photo-input-grid">
@@ -477,7 +477,7 @@
           </article>
 
           <article class="card">
-            <h3>Anexo de exame (PDF/imagem)</h3>
+            <h3><i class="bi bi-file-earmark-medical section-title-icon icon-upload" aria-hidden="true"></i>Anexo de exame (PDF/imagem)</h3>
             <form id="exam-upload-form" class="stack">
               <input name="exam_name" type="text" placeholder="Nome do exame (opcional)" />
               <input name="exam_type" type="text" placeholder="Tipo do exame (opcional)" />
@@ -499,36 +499,43 @@
         </section>
 
         <article class="card">
-          <h3>Recomendação de treino (automática)</h3>
+          <h3><i class="bi bi-lightning section-title-icon icon-workout" aria-hidden="true"></i>Recomendação de treino (automática)</h3>
           <button id="load-workout-recommendation" class="btn-secondary">Gerar recomendação</button>
           <pre id="workout-recommendation" class="output"></pre>
         </article>
 
         <article class="card">
-          <h3>Histórico de anexos enviados</h3>
+          <h3><i class="bi bi-clock-history section-title-icon icon-history" aria-hidden="true"></i>Histórico de anexos enviados</h3>
           <div id="attachments-history-list" class="history-list"></div>
         </article>
       </section>
 
       <section id="tab-exames" class="tab-panel">
-        <article class="card">
-          <h3>Marcadores principais (rins, fígado e metabólico)</h3>
-          <p class="muted">Visão clínica sempre baseada no histórico completo de exames, não apenas no dia filtrado.</p>
-          <div id="exam-kpi-cards" class="exam-kpi-grid"></div>
+        <article class="card panel-overview panel-overview-exames">
+          <h3><i class="bi bi-heart-pulse section-title-icon icon-exam" aria-hidden="true"></i>Exames e monitoramento clínico</h3>
+          <p class="muted">Esta aba mantém visão clínica completa (histórico total), mesmo quando o filtro de data muda.</p>
         </article>
 
-        <article class="card">
-          <h3>Alertas do exame mais recente</h3>
-          <div id="exam-alerts-list" class="history-list"></div>
-        </article>
+        <section class="exames-grid">
+          <article class="card">
+            <h3><i class="bi bi-clipboard2-pulse section-title-icon icon-exam" aria-hidden="true"></i>Marcadores principais (rins, fígado e metabólico)</h3>
+            <p class="muted">Visão clínica sempre baseada no histórico completo de exames, não apenas no dia filtrado.</p>
+            <div id="exam-kpi-cards" class="exam-kpi-grid"></div>
+          </article>
 
-        <article class="card">
-          <h3>Linha do tempo de exames</h3>
-          <div id="exam-timeline-list" class="history-list"></div>
-        </article>
+          <article class="card">
+            <h3><i class="bi bi-exclamation-triangle section-title-icon icon-alert" aria-hidden="true"></i>Alertas do exame mais recente</h3>
+            <div id="exam-alerts-list" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-clock-history section-title-icon icon-timeline" aria-hidden="true"></i>Linha do tempo de exames</h3>
+            <div id="exam-timeline-list" class="history-list"></div>
+          </article>
+        </section>
 
         <article class="card chart-card">
-          <h3>Comparação de marcadores (evolução)</h3>
+          <h3><i class="bi bi-graph-up-arrow section-title-icon icon-dashboard" aria-hidden="true"></i>Comparação de marcadores (evolução)</h3>
           <p id="exam-trend-summary" class="muted">Carregando comparação...</p>
           <div class="chart-box">
             <canvas id="chart-exam-trend"></canvas>
@@ -536,43 +543,14 @@
         </article>
       </section>
 
-      <section id="tab-historico" class="tab-panel">
-        <section class="history-grid">
-          <article class="card">
-            <h3>Medidas corporais</h3>
-            <div id="history-measurements" class="history-list"></div>
-          </article>
-
-          <article class="card">
-            <h3>Bioimpedância</h3>
-            <div id="history-bioimpedance" class="history-list"></div>
-          </article>
-
-          <article class="card">
-            <h3>Exames médicos</h3>
-            <div id="history-exams" class="history-list"></div>
-          </article>
-
-          <article class="card">
-            <h3>Hidratação</h3>
-            <div id="history-hydration" class="history-list"></div>
-          </article>
-
-          <article class="card">
-            <h3>Treinos</h3>
-            <div id="history-workouts" class="history-list"></div>
-          </article>
-
-          <article class="card">
-            <h3>Alimentação</h3>
-            <div id="history-nutrition" class="history-list"></div>
-          </article>
-        </section>
-      </section>
-
       <section id="tab-ia" class="tab-panel">
+        <article class="card panel-overview panel-overview-ia">
+          <h3><i class="bi bi-cpu section-title-icon icon-ai" aria-hidden="true"></i>Configuração da IA</h3>
+          <p class="muted">Ajuste perfil e modelos por tipo de tarefa. O recomendado já vem balanceado para custo e qualidade.</p>
+        </article>
+
         <article class="card">
-          <h3>Perfil de IA (com seleção)</h3>
+          <h3><i class="bi bi-sliders section-title-icon icon-ai" aria-hidden="true"></i>Perfil de IA (com seleção)</h3>
           <form id="ai-settings-form" class="stack">
             <label class="filter-field">
               <span>Perfil atual</span>
@@ -606,18 +584,20 @@
           <pre id="ai-settings-result" class="output">Sem alterações salvas nesta sessão.</pre>
         </article>
 
-        <article class="card">
-          <h3>O que a IA faz</h3>
-          <div id="ai-capabilities-list" class="history-list"></div>
-        </article>
+        <section class="grid-2 ia-grid">
+          <article class="card">
+            <h3><i class="bi bi-list-check section-title-icon icon-ai" aria-hidden="true"></i>O que a IA faz</h3>
+            <div id="ai-capabilities-list" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-diagram-3 section-title-icon icon-ai" aria-hidden="true"></i>Modelos em uso</h3>
+            <div id="ai-models-list" class="history-list"></div>
+          </article>
+        </section>
 
         <article class="card">
-          <h3>Modelos em uso</h3>
-          <div id="ai-models-list" class="history-list"></div>
-        </article>
-
-        <article class="card">
-          <h3>Prompt e persona atual</h3>
+          <h3><i class="bi bi-file-text section-title-icon icon-ai" aria-hidden="true"></i>Prompt e persona atual</h3>
           <p class="muted">Fonte: <span id="ai-persona-source">doc-ia/persona-ia-edevida.md</span></p>
           <pre id="ai-persona-preview" class="output">Carregando persona...</pre>
           <details>
@@ -627,15 +607,49 @@
         </article>
       </section>
 
-      <footer class="card footer">
-        <p>
-          EdeVida Web + APK: use as abas para registrar alimentação, água, anexos e evolução corporal.
-        </p>
-      </footer>
+      <section id="tab-historico" class="tab-panel">
+        <article class="card panel-overview panel-overview-history">
+          <h3><i class="bi bi-clock-history section-title-icon icon-history" aria-hidden="true"></i>Histórico geral</h3>
+          <p class="muted">Linha do tempo completa dos seus registros para auditoria e comparação de evolução.</p>
+        </article>
+
+        <section class="history-grid">
+          <article class="card">
+            <h3><i class="bi bi-rulers section-title-icon icon-history" aria-hidden="true"></i>Medidas corporais</h3>
+            <div id="history-measurements" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-activity section-title-icon icon-history" aria-hidden="true"></i>Bioimpedância</h3>
+            <div id="history-bioimpedance" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-heart-pulse section-title-icon icon-exam" aria-hidden="true"></i>Exames médicos</h3>
+            <div id="history-exams" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-droplet-half section-title-icon icon-water" aria-hidden="true"></i>Hidratação</h3>
+            <div id="history-hydration" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-fire section-title-icon icon-workout" aria-hidden="true"></i>Treinos</h3>
+            <div id="history-workouts" class="history-list"></div>
+          </article>
+
+          <article class="card">
+            <h3><i class="bi bi-egg-fried section-title-icon icon-meal" aria-hidden="true"></i>Alimentação</h3>
+            <div id="history-nutrition" class="history-list"></div>
+          </article>
+        </section>
+      </section>
+
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/web/app.js?v=20260321c" type="module"></script>
+    <script src="/web/app.js?v=20260321d" type="module"></script>
   </body>
 </html>
