@@ -6,6 +6,7 @@ const state = {
     pendingDashboardChartsRender: false,
     pendingExamPanelRender: false,
     quickMealSlot: "",
+    registroMode: "",
   },
   auth: {
     config: null,
@@ -2077,10 +2078,87 @@ function activateTabByName(tabName) {
   return true;
 }
 
+function normalizeRegistroMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  const valid = new Set(["", "texto", "foto", "voz", "agua", "treino"]);
+  return valid.has(mode) ? mode : "";
+}
+
+function inputModeByRegistroMode(mode) {
+  const normalized = normalizeRegistroMode(mode);
+  return normalized === "texto" || normalized === "foto" || normalized === "voz" ? "draft" : "chat";
+}
+
+function registroModeHint(mode) {
+  const normalized = normalizeRegistroMode(mode);
+  if (normalized === "texto") return "Modo texto: descreva a refeição no chat. A IA analisa e você confirma antes de registrar.";
+  if (normalized === "foto") return "Modo foto: envie a imagem (câmera ou galeria). Depois, ajuste no chat se necessário e registre.";
+  if (normalized === "voz") return "Modo voz: envie o áudio. Depois, ajuste no chat se necessário e registre.";
+  if (normalized === "agua") return "Modo água: use o formulário rápido para salvar hidratação. O chat segue livre para dúvidas.";
+  if (normalized === "treino") return "Modo treino: use o formulário rápido para salvar atividade. O chat segue livre para dúvidas.";
+  return "Sem modo selecionado: o chat funciona como conversa livre com a IA (sem registro automático).";
+}
+
+function syncRegistroModeUi() {
+  const mode = normalizeRegistroMode(state.ui.registroMode);
+  const buttons = Array.from(document.querySelectorAll(".registro-mode-btn"));
+  const panels = Array.from(document.querySelectorAll(".registros-mode-panel"));
+  const hintNode = document.getElementById("registro-mode-hint");
+  const textForm = document.getElementById("nutrition-form");
+  const modeInput = textForm?.querySelector('[name="mode"]');
+  const textInput = textForm?.querySelector('textarea[name="text"]');
+  const submitButton = textForm?.querySelector('button[type="submit"]');
+
+  for (const button of buttons) {
+    button.classList.toggle("is-active", button.dataset.registroMode === mode);
+  }
+
+  for (const panel of panels) {
+    const panelMode = String(panel.dataset.registroPanel || "").trim().toLowerCase();
+    panel.classList.toggle("is-hidden", panelMode !== mode);
+  }
+
+  if (hintNode) {
+    hintNode.textContent = registroModeHint(mode);
+  }
+
+  if (modeInput) {
+    modeInput.value = inputModeByRegistroMode(mode);
+  }
+
+  if (textInput) {
+    if (mode === "texto") {
+      textInput.placeholder = "Ex.: Almoço: arroz, feijão, frango grelhado e 300 ml de água";
+    } else if (mode === "foto" || mode === "voz") {
+      textInput.placeholder = 'Ex.: Correção: não era água, era suco de limão sem açúcar.';
+    } else {
+      textInput.placeholder = "Converse com a IA livremente (sem registro).";
+    }
+  }
+
+  if (submitButton) {
+    submitButton.textContent = mode === "texto" ? "Analisar texto" : mode === "foto" || mode === "voz" ? "Enviar correção no chat" : "Enviar mensagem";
+  }
+}
+
+function setRegistroMode(mode, options = {}) {
+  state.ui.registroMode = normalizeRegistroMode(mode);
+  syncRegistroModeUi();
+
+  const shouldFocus = options.focus === true;
+  if (shouldFocus) {
+    window.setTimeout(() => {
+      const input = document.querySelector('#nutrition-form textarea[name="text"]');
+      input?.focus();
+    }, 60);
+  }
+}
+
 function openQuickMealRegister(slotKey) {
   const normalizedSlot = MEAL_SLOTS.some((item) => item.key === slotKey) ? slotKey : "outro";
   state.ui.quickMealSlot = normalizedSlot;
   activateTabByName("registros");
+  setRegistroMode("foto");
 
   const draftSlotSelect = document.querySelector('#nutrition-draft-form select[name="meal_slot"]');
   if (draftSlotSelect) {
@@ -2093,12 +2171,11 @@ function openQuickMealRegister(slotKey) {
   }
 
   window.setTimeout(() => {
-    const photoCard = document.getElementById("food-card-photo");
-    photoCard?.scrollIntoView({ behavior: "smooth", block: "start" });
-    photoCard?.querySelector('input[name="file_camera"]')?.focus();
+    const photoInput = document.querySelector('#nutrition-image-form input[name="file_camera"]');
+    photoInput?.focus();
   }, 120);
 
-  setStatus(`Registro rápido (${mealSlotLabel(normalizedSlot)}): use "Tirar foto agora".`, "info");
+  setStatus(`Registro rápido (${mealSlotLabel(normalizedSlot)}): modo foto pronto para captura.`, "info");
 }
 
 function mealSlotOptionsHtml(selectedSlot) {
@@ -2618,23 +2695,29 @@ function renderNutritionChatThread() {
       (message) => `
         <article class="chat-bubble ${message.role === "assistant" ? "chat-assistant" : "chat-user"}">
           <p class="chat-role">${message.role === "assistant" ? "IA" : "Você"}</p>
-          <p>${escapeHtml(message.text || "")}</p>
+          ${
+            message?.html
+              ? `<div class="chat-rich">${message.html}</div>`
+              : `<p>${escapeHtml(message.text || "")}</p>`
+          }
         </article>
       `
     )
     .join("");
 }
 
-function appendNutritionChatMessage(role, text) {
+function appendNutritionChatMessage(role, text, options = {}) {
   const content = String(text || "").trim();
-  if (!content) return;
+  const html = typeof options.html === "string" ? options.html.trim() : "";
+  if (!content && !html) return;
 
-  state.nutritionChatHistory = [...(state.nutritionChatHistory || []), { role, text: content }].slice(-30);
+  state.nutritionChatHistory = [...(state.nutritionChatHistory || []), { role, text: content, html }].slice(-30);
   renderNutritionChatThread();
 }
 
 function renderNutritionDraftPreview() {
   const node = document.getElementById("nutrition-draft-preview");
+  const pendingNode = document.getElementById("registro-pending-actions");
   const slotSelect = document.querySelector("#nutrition-draft-form select[name='meal_slot']");
   const recordedAtInput = document.querySelector("#nutrition-draft-form input[name='recorded_at']");
   if (!node) return;
@@ -2645,9 +2728,12 @@ function renderNutritionDraftPreview() {
 
   if (!state.nutritionDraft) {
     node.textContent = "Sem rascunho ativo.";
+    pendingNode?.classList.add("is-hidden");
     if (slotSelect) slotSelect.value = "";
     return;
   }
+
+  pendingNode?.classList.remove("is-hidden");
 
   const draft = state.nutritionDraft;
   const sourcesSummary = (draft.sources || []).join(" + ");
@@ -4577,8 +4663,8 @@ function syncStickyMobileShellHeight() {
   }
 
   const shellHeight = Math.ceil(shell.getBoundingClientRect().height || 0);
-  const safeGap = 8;
-  const finalHeight = Math.max(152, shellHeight + safeGap);
+  const safeGap = 4;
+  const finalHeight = Math.max(130, shellHeight + safeGap);
   const value = `${finalHeight}px`;
   spacer.style.height = value;
   document.documentElement.style.setProperty("--sticky-mobile-shell-height", value);
@@ -4716,6 +4802,15 @@ async function deleteProgressPhotoRecord(recordId) {
 
 function setupActions() {
   document.addEventListener("click", async (event) => {
+    const modeButton = event.target.closest(".registro-mode-btn");
+    if (modeButton) {
+      event.preventDefault();
+      const mode = String(modeButton.dataset.registroMode || "").trim();
+      const nextMode = state.ui.registroMode === mode ? "" : mode;
+      setRegistroMode(nextMode, { focus: nextMode === "texto" });
+      return;
+    }
+
     const quickMealButton = event.target.closest("button[data-quick-meal-slot]");
     if (quickMealButton) {
       event.preventDefault();
@@ -4861,7 +4956,7 @@ async function reviseCurrentNutritionDraft(correctionText) {
 function setupForms() {
   bindForm("nutrition-form", async (payload, form) => {
     const userId = await ensureUser();
-    const mode = payload.mode || "chat";
+    const mode = String(payload.mode || form.querySelector('[name="mode"]')?.value || "chat").trim().toLowerCase();
     const rawText = String(payload.text || "").trim();
     if (!rawText) {
       throw new Error("Digite uma mensagem antes de enviar.");
@@ -4876,16 +4971,17 @@ function setupForms() {
 
       appendNutritionChatMessage("assistant", chat.replyText || "Sem resposta.");
       renderNutritionChatThread();
-      const previousMode = form.querySelector("select[name='mode']")?.value || "chat";
+      const previousMode = String(form.querySelector('[name="mode"]')?.value || "chat");
       form.reset();
-      const modeSelect = form.querySelector("select[name='mode']");
-      if (modeSelect) modeSelect.value = previousMode;
-      syncNutritionTextUiByMode();
+      const modeInput = form.querySelector('[name="mode"]');
+      if (modeInput) modeInput.value = previousMode;
+      syncRegistroModeUi();
       setStatus("Resposta de conversa gerada (sem registro).", "success");
       return;
     }
 
     if (mode === "save") {
+      appendNutritionChatMessage("user", rawText);
       const saved = await apiJson("/api/nutrition/analyze-text", {
         method: "POST",
         body: JSON.stringify({ user_id: userId, text: rawText, persist: true }),
@@ -4895,33 +4991,47 @@ function setupForms() {
       renderNutritionDraftPreview();
       await loadAllData();
 
-      const previousMode = form.querySelector("select[name='mode']")?.value || "save";
+      const previousMode = String(form.querySelector('[name="mode"]')?.value || "save");
       form.reset();
-      const modeSelect = form.querySelector("select[name='mode']");
-      if (modeSelect) modeSelect.value = previousMode;
-      syncNutritionTextUiByMode();
+      const modeInput = form.querySelector('[name="mode"]');
+      if (modeInput) modeInput.value = previousMode;
+      syncRegistroModeUi();
 
       if (saved?.water_only) {
+        appendNutritionChatMessage("assistant", `Hidratação registrada (${fmtNumber(saved.water_logged_ml, 0)} ml).`);
         setStatus(`Cadastro realizado com sucesso: hidratação registrada (${fmtNumber(saved.water_logged_ml, 0)} ml).`, "success");
       } else {
+        appendNutritionChatMessage("assistant", "Alimentação analisada e registrada direto.");
         setStatus("Cadastro realizado com sucesso: alimentação registrada direto.", "success");
       }
       return saved;
     }
 
     if (mode === "draft" && state.nutritionDraft && isLikelyDraftCorrectionText(rawText)) {
+      appendNutritionChatMessage("user", rawText);
       const revised = await reviseCurrentNutritionDraft(rawText);
       renderNutritionDraftPreview();
+      appendNutritionChatMessage(
+        "assistant",
+        "",
+        {
+          html: buildNutritionAnalysisHtml(
+            { analysis: state.nutritionDraft?.analysis || revised?.analysis || {} },
+            { title: "Rascunho ajustado", subtitle: "Correção aplicada. Revise e registre quando estiver tudo certo." }
+          ),
+        }
+      );
 
-      const previousMode = form.querySelector("select[name='mode']")?.value || "chat";
+      const previousMode = String(form.querySelector('[name="mode"]')?.value || "draft");
       form.reset();
-      const modeSelect = form.querySelector("select[name='mode']");
-      if (modeSelect) modeSelect.value = previousMode;
-      syncNutritionTextUiByMode();
+      const modeInput = form.querySelector('[name="mode"]');
+      if (modeInput) modeInput.value = previousMode;
+      syncRegistroModeUi();
       setStatus("Correção aplicada no rascunho. Revise e registre quando estiver certo.", "success");
       return revised;
     }
 
+    appendNutritionChatMessage("user", rawText);
     const analysis = await apiJson("/api/nutrition/analyze-text", {
       method: "POST",
       body: JSON.stringify({ user_id: userId, text: rawText, persist: false }),
@@ -4929,44 +5039,28 @@ function setupForms() {
 
     setNutritionDraftFromAnalysis(analysis, "texto");
     renderNutritionDraftPreview();
+    appendNutritionChatMessage(
+      "assistant",
+      "",
+      {
+        html: buildNutritionAnalysisHtml(
+          { analysis: state.nutritionDraft?.analysis || analysis?.analysis || {} },
+          { title: "Análise pronta para registrar", subtitle: "Se necessário, envie correções no chat e depois registre." }
+        ),
+      }
+    );
 
-    const previousMode = form.querySelector("select[name='mode']")?.value || "chat";
+    const previousMode = String(form.querySelector('[name="mode"]')?.value || "draft");
     form.reset();
-    const modeSelect = form.querySelector("select[name='mode']");
-    if (modeSelect) modeSelect.value = previousMode;
-    syncNutritionTextUiByMode();
+    const modeInput = form.querySelector('[name="mode"]');
+    if (modeInput) modeInput.value = previousMode;
+    syncRegistroModeUi();
     setStatus("Texto analisado e adicionado ao rascunho. Revise antes de registrar.", "success");
   });
 
   const nutritionTextForm = document.getElementById("nutrition-form");
-  const nutritionTextModeSelect = nutritionTextForm?.querySelector("select[name='mode']");
-  const nutritionTextInput = nutritionTextForm?.querySelector("textarea[name='text']");
-  const nutritionTextSubmitButton = nutritionTextForm?.querySelector("button[type='submit']");
-
-  function syncNutritionTextUiByMode() {
-    const currentMode = nutritionTextModeSelect?.value || "chat";
-    if (nutritionTextSubmitButton) {
-      if (currentMode === "chat") {
-        nutritionTextSubmitButton.textContent = "Enviar mensagem";
-      } else if (currentMode === "save") {
-        nutritionTextSubmitButton.textContent = "Analisar e gravar direto";
-      } else {
-        nutritionTextSubmitButton.textContent = "Analisar para rascunho";
-      }
-    }
-    if (nutritionTextInput) {
-      if (currentMode === "chat") {
-        nutritionTextInput.placeholder = "Ex.: Estou com vontade de doce agora, como ajusto meu dia?";
-      } else if (currentMode === "save") {
-        nutritionTextInput.placeholder = "Ex.: Janta: frango grelhado, salada e 300 ml de água (registrar direto)";
-      } else {
-        nutritionTextInput.placeholder = "Ex.: Almoço: arroz, feijão, frango grelhado e 400 ml de água";
-      }
-    }
-  }
-
-  nutritionTextModeSelect?.addEventListener("change", syncNutritionTextUiByMode);
-  syncNutritionTextUiByMode();
+  nutritionTextForm?.querySelector('[name="mode"]')?.setAttribute("value", inputModeByRegistroMode(state.ui.registroMode));
+  syncRegistroModeUi();
   renderNutritionChatThread();
 
   document.getElementById("nutrition-chat-clear")?.addEventListener("click", () => {
@@ -5006,11 +5100,22 @@ function setupForms() {
         state.nutritionDraft.analysis.meal_slot = quickMealSlot;
       }
       renderNutritionDraftPreview();
+      appendNutritionChatMessage("user", "Foto enviada para análise.");
+      appendNutritionChatMessage(
+        "assistant",
+        "",
+        {
+          html: buildNutritionAnalysisHtml(
+            { analysis: state.nutritionDraft?.analysis || result?.analysis || {} },
+            { title: "Análise da foto pronta", subtitle: "Se necessário, ajuste pelo chat e depois registre." }
+          ),
+        }
+      );
       nutritionImageForm.reset();
       state.ui.quickMealSlot = "";
       setStatus("Foto analisada e adicionada ao rascunho.", "success");
     } catch (err) {
-      writeOutput("nutrition-draft-preview", `Erro: ${err.message}`);
+      appendNutritionChatMessage("assistant", `Erro ao analisar foto: ${err.message}`);
       setStatus(`Erro na foto da alimentacao: ${err.message}`, "error");
     }
   });
@@ -5029,10 +5134,21 @@ function setupForms() {
       const result = await apiFormData("/api/nutrition/analyze-audio", formData);
       setNutritionDraftFromAnalysis(result, "áudio");
       renderNutritionDraftPreview();
+      appendNutritionChatMessage("user", "Áudio enviado para análise.");
+      appendNutritionChatMessage(
+        "assistant",
+        "",
+        {
+          html: buildNutritionAnalysisHtml(
+            { analysis: state.nutritionDraft?.analysis || result?.analysis || {} },
+            { title: "Análise do áudio pronta", subtitle: "Se necessário, ajuste pelo chat e depois registre." }
+          ),
+        }
+      );
       nutritionAudioForm.reset();
       setStatus("Áudio analisado e adicionado ao rascunho.", "success");
     } catch (err) {
-      writeOutput("nutrition-draft-preview", `Erro: ${err.message}`);
+      appendNutritionChatMessage("assistant", `Erro ao analisar áudio: ${err.message}`);
       setStatus(`Erro no audio da alimentacao: ${err.message}`, "error");
     }
   });
@@ -5082,6 +5198,7 @@ function setupForms() {
       nutritionDraftForm.reset();
       const draftRecordedAtInput = nutritionDraftForm.querySelector("input[name='recorded_at']");
       if (draftRecordedAtInput) draftRecordedAtInput.value = currentDateTimeLocalValue();
+      appendNutritionChatMessage("assistant", "Registro salvo com sucesso.");
       if (saved?.water_only) {
         await refreshAllWithStatus(`Cadastro realizado com sucesso: hidratação registrada (${fmtNumber(saved.water_logged_ml, 0)} ml).`);
       } else {
@@ -5089,31 +5206,6 @@ function setupForms() {
       }
     } catch (err) {
       setStatus(`Erro ao registrar rascunho: ${err.message}`, "error");
-    }
-  });
-
-  const nutritionDraftCorrectionForm = document.getElementById("nutrition-draft-correction-form");
-  nutritionDraftCorrectionForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    try {
-      if (!state.nutritionDraft) {
-        throw new Error("Nenhum rascunho ativo para corrigir.");
-      }
-
-      const formData = new FormData(nutritionDraftCorrectionForm);
-      const correctionText = String(formData.get("correction_text") || "").trim();
-      if (!correctionText) {
-        throw new Error("Escreva a correção antes de enviar.");
-      }
-
-      setStatus("Aplicando correção no rascunho...", "info");
-      await reviseCurrentNutritionDraft(correctionText);
-      renderNutritionDraftPreview();
-      nutritionDraftCorrectionForm.reset();
-      setStatus("Correção aplicada. Revise e registre quando estiver certo.", "success");
-    } catch (err) {
-      setStatus(`Erro ao corrigir rascunho: ${err.message}`, "error");
     }
   });
 
@@ -5137,6 +5229,7 @@ function setupForms() {
     });
 
     form.reset();
+    appendNutritionChatMessage("assistant", `Água registrada: ${fmtNumber(payload.amount_ml, 0)} ml.`);
     await refreshAllWithStatus("Cadastro realizado com sucesso: hidratação registrada.");
   });
 
@@ -5200,6 +5293,7 @@ function setupForms() {
     });
 
     form.reset();
+    appendNutritionChatMessage("assistant", "Treino registrado com sucesso.");
     await refreshAllWithStatus("Cadastro realizado com sucesso: treino salvo.");
   });
 

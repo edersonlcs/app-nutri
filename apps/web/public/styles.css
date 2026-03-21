@@ -3487,3 +3487,208 @@ body {
     padding: 0.16rem 0.34rem;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Unified registros + final mobile tune (21/03)                              */
+/* -------------------------------------------------------------------------- */
+
+.registros-unified-card {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.registros-mode-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.44rem;
+}
+
+.registro-mode-btn {
+  min-height: 33px;
+  padding: 0.24rem 0.62rem;
+  border-radius: 10px;
+}
+
+.registro-mode-btn.is-active {
+  border-color: rgba(47, 143, 131, 0.38);
+  background: linear-gradient(135deg, rgba(47, 143, 131, 0.2), rgba(47, 143, 131, 0.13));
+  color: #0f5d54;
+}
+
+.registros-mode-panels {
+  display: grid;
+  gap: 0.56rem;
+}
+
+.registros-mode-panel {
+  padding: 0.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  box-shadow: none;
+}
+
+.registros-mode-panel h4 {
+  margin: 0 0 0.42rem;
+  font-size: 0.94rem;
+}
+
+.registro-chat-thread {
+  min-height: 164px;
+  max-height: 380px;
+  overflow: auto;
+}
+
+.chat-rich .analysis-card {
+  border: 1px solid rgba(19, 39, 43, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.registro-chat-form {
+  gap: 0.4rem;
+}
+
+.registro-pending-actions {
+  border: 1px dashed rgba(39, 129, 97, 0.34);
+  border-radius: 12px;
+  background: rgba(239, 249, 244, 0.86);
+  padding: 0.58rem;
+  display: grid;
+  gap: 0.44rem;
+}
+
+.registro-pending-actions h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.registro-draft-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.registro-draft-preview {
+  display: none;
+}
+
+#tab-anexos .card,
+#tab-exames .card,
+#tab-historico .card,
+#tab-cadastro .card,
+#tab-ia .card {
+  border: 1px solid #d8d0c6;
+  background: #fff;
+  box-shadow: none;
+  border-radius: 12px;
+}
+
+@media (max-width: 700px) {
+  .sticky-mobile-shell {
+    padding-top: max(0.01rem, env(safe-area-inset-top));
+  }
+
+  .sticky-mobile-shell::before {
+    inset: calc(-1 * env(safe-area-inset-top) - 0.76rem) -0.24rem -0.52rem -0.24rem !important;
+  }
+
+  .sticky-mobile-spacer {
+    height: var(--sticky-mobile-shell-height, 136px) !important;
+  }
+
+  .filters-row {
+    grid-template-columns: 30px minmax(0, 1fr) 16px minmax(0, 1fr) 30px 56px 56px !important;
+  }
+
+  .compact-field input {
+    font-size: 0.7rem;
+  }
+
+  .filter-apply-btn,
+  .filter-today-btn {
+    font-size: 0.66rem;
+  }
+
+  #tab-dashboard .bio-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .bio-metrics .metric {
+    min-height: 0;
+  }
+
+  .registros-unified-card {
+    gap: 0.52rem;
+  }
+
+  .registros-mode-buttons {
+    gap: 0.28rem;
+  }
+
+  .registro-mode-btn {
+    min-height: 31px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .registros-mode-panel {
+    padding: 0.52rem;
+    border-radius: 10px;
+  }
+
+  .registros-mode-panel h4 {
+    font-size: 0.78rem;
+    margin-bottom: 0.32rem;
+  }
+
+  .registro-chat-thread {
+    min-height: 134px;
+    max-height: 290px;
+    border-radius: 10px;
+    padding: 0.5rem;
+  }
+
+  .registro-chat-form textarea {
+    min-height: 72px;
+    font-size: 0.72rem;
+    line-height: 1.16;
+  }
+
+  .registro-chat-form button {
+    min-height: 31px;
+    font-size: 0.7rem;
+    padding: 0.22rem 0.44rem;
+  }
+
+  .registro-pending-actions {
+    padding: 0.46rem;
+    border-radius: 10px;
+  }
+
+  .registro-pending-actions h4 {
+    font-size: 0.78rem;
+  }
+
+  .registro-draft-form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.28rem;
+  }
+
+  .registro-draft-form select,
+  .registro-draft-form input,
+  .registro-draft-form button {
+    min-height: 30px;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.38rem;
+  }
+
+  #tab-anexos .card,
+  #tab-exames .card,
+  #tab-historico .card,
+  #tab-cadastro .card,
+  #tab-ia .card {
+    padding: 0.58rem;
+    border-radius: 10px;
+  }
+}
