@@ -1924,6 +1924,9 @@ h4,
 
 .metric h2 {
   color: #7d8492;
+  display: flex;
+  align-items: center;
+  gap: 0.34rem;
 }
 
 .metric-value {
@@ -1932,6 +1935,23 @@ h4,
 
 .metric-sub {
   color: #808795;
+}
+
+.metric-icon {
+  font-size: 0.86em;
+  color: #6e7c90;
+  flex: 0 0 auto;
+}
+
+.profile-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.profile-label .bi {
+  font-size: 0.8em;
+  color: #6f7d92;
 }
 
 .metrics-top .metric {
@@ -2474,8 +2494,24 @@ body {
     pointer-events: none;
   }
 
+  .sticky-mobile-shell::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * env(safe-area-inset-top)) -0.34rem -0.46rem -0.34rem;
+    background: var(--refit-bg);
+    z-index: -1;
+  }
+
   .sticky-mobile-shell > * {
     pointer-events: auto;
+  }
+
+  .sticky-mobile-shell .tabs,
+  .sticky-mobile-shell .filters-card {
+    background: #fff;
+    border-color: #dfd7ce;
+    box-shadow: 0 10px 22px rgba(27, 34, 46, 0.09);
+    backdrop-filter: none;
   }
 
   .sticky-mobile-spacer {
@@ -2611,6 +2647,136 @@ body {
     padding: 0.24rem 0.36rem;
     font-size: 0.64rem;
     border-radius: 8px;
+  }
+
+  #tab-dashboard .metrics-top {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .metrics-top .metric {
+    padding: 0.34rem 0.3rem 0.32rem;
+    border-radius: 10px;
+    border: 1px solid #ddd4ca;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  #tab-dashboard .metrics-top .metric::before {
+    display: none;
+  }
+
+  #tab-dashboard .metrics-top .metric h2 {
+    justify-content: center;
+    text-align: center;
+    font-size: 0.62rem;
+    line-height: 1.1;
+    min-height: 1.3em;
+    color: #3e4656;
+  }
+
+  #tab-dashboard .metrics-top .metric .metric-icon {
+    font-size: 0.66rem;
+  }
+
+  #tab-dashboard .metrics-top .metric-value {
+    margin-top: 0.1rem;
+    font-size: 0.82rem;
+    line-height: 1.05;
+    text-align: center;
+  }
+
+  #tab-dashboard .metrics-top .metric-sub {
+    margin-top: 0.08rem;
+    font-size: 0.58rem;
+    line-height: 1.12;
+    text-align: center;
+  }
+
+  #tab-dashboard .bio-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .bio-metrics .metric {
+    padding: 0.34rem 0.28rem 0.3rem;
+    border-radius: 10px;
+    border: 1px solid #ddd4ca;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  #tab-dashboard .bio-metrics .metric h2 {
+    justify-content: center;
+    text-align: center;
+    font-size: 0.58rem;
+    line-height: 1.12;
+    min-height: 1.3em;
+    color: #3d4554;
+  }
+
+  #tab-dashboard .bio-metrics .metric .metric-icon {
+    font-size: 0.64rem;
+  }
+
+  #tab-dashboard .bio-metrics .metric .metric-value {
+    margin-top: 0.08rem;
+    font-size: 0.92rem;
+    text-align: center;
+    line-height: 1.04;
+  }
+
+  #tab-dashboard .bio-metrics .metric .metric-sub {
+    margin-top: 0.05rem;
+    font-size: 0.54rem;
+    line-height: 1.08;
+    text-align: center;
+  }
+
+  #tab-dashboard #profile-summary-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .profile-card {
+    padding: 0.34rem 0.28rem 0.3rem;
+    border-radius: 10px;
+    border: 1px solid #ddd4ca;
+    box-shadow: none;
+    background: #fff;
+    gap: 0.1rem;
+  }
+
+  #tab-dashboard .profile-label {
+    justify-content: center;
+    text-align: center;
+    font-size: 0.56rem;
+    gap: 0.2rem;
+    color: #5b6475;
+  }
+
+  #tab-dashboard .profile-label .bi {
+    font-size: 0.62rem;
+  }
+
+  #tab-dashboard .profile-value {
+    margin-top: 0.08rem;
+    font-size: 0.9rem;
+    line-height: 1.03;
+    text-align: center;
+  }
+
+  #tab-dashboard .profile-note {
+    margin-top: 0.04rem;
+    font-size: 0.54rem;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  #profile-summary-meta {
+    margin-top: 0.2rem;
+    font-size: 0.56rem;
+    line-height: 1.2;
   }
 
   .registros-overview > p.muted,

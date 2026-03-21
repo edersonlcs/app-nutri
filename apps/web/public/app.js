@@ -1211,9 +1211,19 @@ function renderMetricCards() {
 }
 
 function profileCardHtml(label, value, note = "") {
+  const iconByLabel = {
+    Altura: "bi-rulers",
+    "Peso base (início)": "bi-flag",
+    "Peso base": "bi-flag",
+    "Peso atual": "bi-speedometer2",
+    "IMC atual": "bi-activity",
+    "Gordura corporal": "bi-heart-pulse",
+    Cintura: "bi-aspect-ratio",
+  };
+  const iconClass = iconByLabel[label] || "bi-dot";
   return `
     <article class="profile-card">
-      <span class="profile-label">${escapeHtml(label)}</span>
+      <span class="profile-label"><i class="bi ${iconClass}" aria-hidden="true"></i>${escapeHtml(label)}</span>
       <p class="profile-value">${escapeHtml(value)}</p>
       <p class="profile-note">${escapeHtml(note || "-")}</p>
     </article>
@@ -1256,7 +1266,7 @@ function renderProfileSummary() {
       note: "perfil base",
     },
     {
-      label: "Peso base",
+      label: "Peso base (início)",
       value: baselineWeight !== null ? `${fmtNumber(baselineWeight)} kg` : "-",
       note: "cadastro",
     },
