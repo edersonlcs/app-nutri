@@ -3130,15 +3130,17 @@ function renderNutritionDashboard() {
       const digits = Number(item.digits || 0);
       const metricText = `${fmtNumber(item.consumed, digits)} / ${fmtNumber(item.target, digits)} ${item.unit || ""}`.trim();
       const cardClass = item.secondary ? "macro-card macro-card-secondary" : "macro-card";
+      const lines = Array.isArray(item.lines) ? item.lines.filter(Boolean) : [];
+      const mainLine = lines[0] || metricText;
+      const extraLines = lines.slice(1, 4);
       return `
         <article class="${cardClass}">
-          <h4>${item.title}</h4>
-          ${
-            Array.isArray(item.lines) && item.lines.length
-              ? item.lines.map((line, idx) => `<p${idx === 0 ? "" : ' class="muted"'}>${escapeHtml(line)}</p>`).join("")
-              : `<p><strong>${metricText}</strong></p>`
-          }
-          <span class="signal ${status.signalClass}">${status.label}</span>
+          <header class="nutrition-insight-card-header">
+            <h4>${item.title}</h4>
+            <span class="signal ${status.signalClass}">${status.label}</span>
+          </header>
+          <p class="nutrition-insight-main-line">${escapeHtml(mainLine)}</p>
+          ${extraLines.map((line) => `<p class="muted nutrition-insight-sub-line">${escapeHtml(line)}</p>`).join("")}
         </article>
       `;
     })
@@ -3269,13 +3271,13 @@ function renderNutritionDashboard() {
       };
       return `
         <article class="weekly-group-card">
-          <header>
-            <strong>${slot.label}</strong>
+          <header class="nutrition-insight-card-header">
+            <h4>${slot.label}</h4>
             <span class="signal ${summary.status.signalClass}">${summary.status.label}</span>
           </header>
-          <p class="muted">${slotEntries.length} registro(s) na semana (seg-dom)</p>
-          <p class="nutrition-food-meta"><strong>Análise semana:</strong> ${escapeHtml(summary.reason)}</p>
-          <p class="nutrition-food-meta"><strong>Mensagem IA:</strong> ${escapeHtml(summary.message)}</p>
+          <p class="nutrition-insight-main-line">${slotEntries.length} registro(s) na semana (seg-dom)</p>
+          <p class="muted nutrition-insight-sub-line">${escapeHtml(summary.reason)}</p>
+          <p class="muted nutrition-insight-sub-line"><strong>Mensagem IA:</strong> ${escapeHtml(summary.message)}</p>
         </article>
       `;
     }).join("");
@@ -3488,14 +3490,16 @@ function renderNutritionDashboard() {
     return `
       <article class="meal-card">
         <h4>${slot.label}</h4>
-        <p><strong>${entries.length}</strong> registro(s)</p>
-        <p class="tag ${qualityClass(latestQuality)}">${escapeHtml(qualityLabel(latestQuality))}</p>
-        <p class="calorie-line ${metric.statusClass}">
-          <strong>${fmtNumber(metric.calories, 0)} / ${fmtNumber(metric.goal, 0)} kcal</strong>
-        </p>
-        <div class="meal-card-actions">
-          <button class="btn-ghost meal-quick-register-btn" type="button" data-quick-meal-slot="${slot.key}">
-            + Registrar ${slot.label}
+        <div class="meal-card-inline">
+          <div class="meal-card-inline-stats">
+            <p class="meal-card-stat-line"><strong>${entries.length}</strong> registro(s)</p>
+            <p class="tag ${qualityClass(latestQuality)}">${escapeHtml(qualityLabel(latestQuality))}</p>
+            <p class="calorie-line ${metric.statusClass}">
+              <strong>${fmtNumber(metric.calories, 0)} / ${fmtNumber(metric.goal, 0)} kcal</strong>
+            </p>
+          </div>
+          <button class="btn-ghost meal-quick-register-btn meal-quick-register-inline" type="button" data-quick-meal-slot="${slot.key}">
+            Registrar
           </button>
         </div>
         <details class="meal-inline-details">
@@ -4573,8 +4577,8 @@ function syncStickyMobileShellHeight() {
   }
 
   const shellHeight = Math.ceil(shell.getBoundingClientRect().height || 0);
-  const safeGap = 14;
-  const finalHeight = Math.max(172, shellHeight + safeGap);
+  const safeGap = 8;
+  const finalHeight = Math.max(152, shellHeight + safeGap);
   const value = `${finalHeight}px`;
   spacer.style.height = value;
   document.documentElement.style.setProperty("--sticky-mobile-shell-height", value);
