@@ -1184,8 +1184,8 @@ function renderMetricCards() {
 
   if (bioFatSubNode) {
     bioFatSubNode.textContent = bioFatInsight
-      ? `${clinicalLabel(bioFatInsight)} (${bioFatInsight.score}%) | histórico completo`
-      : "histórico completo (fora do filtro)";
+      ? `status: ${clinicalLabel(bioFatInsight)} (${bioFatInsight.score}%)`
+      : "último valor (fora do filtro)";
   }
 
   if (bioFatIdealNode) {
@@ -1210,7 +1210,7 @@ function renderMetricCards() {
   document.getElementById("metric-bio-visceral").textContent = latestBio ? fmtNumber(latestBio.visceral_fat_level) : "-";
 }
 
-function profileCardHtml(label, value, note = "") {
+function profileCardHtml(label, value, note = "", source = "latest") {
   const iconByLabel = {
     Altura: "bi-rulers",
     "Peso base (início)": "bi-flag",
@@ -1221,8 +1221,10 @@ function profileCardHtml(label, value, note = "") {
     Cintura: "bi-aspect-ratio",
   };
   const iconClass = iconByLabel[label] || "bi-dot";
+  const sourceClass =
+    source === "fixed" ? "profile-source-fixed" : source === "filtered" ? "profile-source-filter" : "profile-source-latest";
   return `
-    <article class="profile-card">
+    <article class="profile-card ${sourceClass}">
       <span class="profile-label"><i class="bi ${iconClass}" aria-hidden="true"></i>${escapeHtml(label)}</span>
       <p class="profile-value">${escapeHtml(value)}</p>
       <p class="profile-note">${escapeHtml(note || "-")}</p>
@@ -1264,11 +1266,13 @@ function renderProfileSummary() {
       label: "Altura",
       value: heightCm !== null ? `${fmtNumber(heightCm)} cm` : "-",
       note: "perfil base",
+      source: "fixed",
     },
     {
       label: "Peso base (início)",
       value: baselineWeight !== null ? `${fmtNumber(baselineWeight)} kg` : "-",
       note: "cadastro",
+      source: "fixed",
     },
     {
       label: "Peso atual",
@@ -1279,25 +1283,29 @@ function renderProfileSummary() {
           : weightDelta > 0
             ? `+${fmtNumber(weightDelta)} kg vs base`
             : `${fmtNumber(weightDelta)} kg vs base`,
+      source: "latest",
     },
     {
       label: "IMC atual",
       value: currentBmi !== null ? fmtNumber(currentBmi, 2) : "-",
       note: "ultima medicao",
+      source: "latest",
     },
     {
       label: "Gordura corporal",
       value: currentBodyFat !== null ? `${fmtNumber(currentBodyFat)}%` : "-",
       note: "bioimpedancia mais recente",
+      source: "latest",
     },
     {
       label: "Cintura",
       value: currentWaist !== null ? `${fmtNumber(currentWaist)} cm` : "-",
       note: "ultima medida corporal",
+      source: "latest",
     },
   ];
 
-  cardsNode.innerHTML = cards.map((item) => profileCardHtml(item.label, item.value, item.note)).join("");
+  cardsNode.innerHTML = cards.map((item) => profileCardHtml(item.label, item.value, item.note, item.source)).join("");
 
   const sourceDate = latestMeasurement?.recorded_at || latestBio?.recorded_at || null;
   metaNode.textContent = sourceDate
@@ -4565,8 +4573,8 @@ function syncStickyMobileShellHeight() {
   }
 
   const shellHeight = Math.ceil(shell.getBoundingClientRect().height || 0);
-  const safeGap = 10;
-  const finalHeight = Math.max(0, shellHeight + safeGap);
+  const safeGap = 34;
+  const finalHeight = Math.max(224, shellHeight + safeGap);
   const value = `${finalHeight}px`;
   spacer.style.height = value;
   document.documentElement.style.setProperty("--sticky-mobile-shell-height", value);
@@ -4574,8 +4582,14 @@ function syncStickyMobileShellHeight() {
 
 function setupStickyMobileShell() {
   syncStickyMobileShellHeight();
+  window.setTimeout(syncStickyMobileShellHeight, 120);
+  window.setTimeout(syncStickyMobileShellHeight, 480);
   window.addEventListener("resize", syncStickyMobileShellHeight);
   window.addEventListener("orientationchange", syncStickyMobileShellHeight);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncStickyMobileShellHeight);
+    window.visualViewport.addEventListener("scroll", syncStickyMobileShellHeight);
+  }
 
   const shell = document.querySelector(".sticky-mobile-shell");
   if (!shell || typeof ResizeObserver === "undefined") return;

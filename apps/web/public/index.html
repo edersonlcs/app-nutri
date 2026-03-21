@@ -11,7 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="/web/styles.css?v=20260320h" />
+    <link rel="stylesheet" href="/web/styles.css?v=20260320j" />
   </head>
   <body>
     <div class="bg-layer"></div>
@@ -81,20 +81,20 @@
 
       <section id="tab-dashboard" class="tab-panel is-active">
         <section class="metrics metrics-top">
-          <article class="metric card">
+          <article class="metric card metric-source-filter">
             <h2><i class="bi bi-droplet-half metric-icon" aria-hidden="true"></i>Água hoje</h2>
             <p id="metric-water" class="metric-value">-</p>
             <p id="metric-water-sub" class="metric-sub">meta 3000 ml</p>
           </article>
 
-          <article class="metric card">
+          <article class="metric card metric-source-filter">
             <h2><i class="bi bi-egg-fried metric-icon" aria-hidden="true"></i>Refeições hoje</h2>
             <p id="metric-meals" class="metric-value">-</p>
             <p id="metric-meals-sub" class="metric-sub muted">0 kcal no período</p>
             <p id="metric-last-quality" class="metric-sub">sem registro</p>
           </article>
 
-          <article class="metric card">
+          <article class="metric card metric-source-filter">
             <h2><i class="bi bi-fire metric-icon" aria-hidden="true"></i>Treinos semana</h2>
             <p id="metric-workouts" class="metric-value">-</p>
             <p id="metric-workout-minutes" class="metric-sub">0 min</p>
@@ -102,29 +102,29 @@
         </section>
 
         <section class="metrics bio-metrics">
-          <article id="metric-card-bio-fat" class="metric card metric-global-source">
+          <article id="metric-card-bio-fat" class="metric card metric-global-source metric-source-latest">
             <h2><i class="bi bi-activity metric-icon" aria-hidden="true"></i>Bio gordura (%)</h2>
             <p id="metric-bio-fat" class="metric-value">-</p>
             <p id="metric-bio-fat-sub" class="metric-sub">último registro</p>
             <p id="metric-bio-fat-ideal" class="metric-sub muted">ideal --</p>
           </article>
 
-          <article class="metric card metric-global-source">
+          <article class="metric card metric-global-source metric-source-latest">
             <h2><i class="bi bi-person-standing metric-icon" aria-hidden="true"></i>Massa muscular (kg)</h2>
             <p id="metric-bio-muscle" class="metric-value">-</p>
-            <p class="metric-sub">histórico completo (fora do filtro)</p>
+            <p class="metric-sub">último valor (fora do filtro)</p>
           </article>
 
-          <article class="metric card metric-global-source">
+          <article class="metric card metric-global-source metric-source-latest">
             <h2><i class="bi bi-moisture metric-icon" aria-hidden="true"></i>Água corporal (%)</h2>
             <p id="metric-bio-water" class="metric-value">-</p>
-            <p class="metric-sub">histórico completo (fora do filtro)</p>
+            <p class="metric-sub">último valor (fora do filtro)</p>
           </article>
 
-          <article class="metric card metric-global-source">
+          <article class="metric card metric-global-source metric-source-latest">
             <h2><i class="bi bi-exclamation-triangle metric-icon" aria-hidden="true"></i>Gordura visceral</h2>
             <p id="metric-bio-visceral" class="metric-value">-</p>
-            <p class="metric-sub">histórico completo (fora do filtro)</p>
+            <p class="metric-sub">último valor (fora do filtro)</p>
           </article>
         </section>
 
@@ -689,6 +689,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/web/app.js?v=20260320f" type="module"></script>
+    <script src="/web/app.js?v=20260320h" type="module"></script>
   </body>
 </html>

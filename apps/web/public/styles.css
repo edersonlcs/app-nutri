@@ -1940,7 +1940,33 @@ h4,
 .metric-icon {
   font-size: 0.86em;
   color: #6e7c90;
+  display: inline-grid;
+  place-items: center;
+  width: 1.26em;
+  height: 1.26em;
+  border-radius: 999px;
+  background: rgba(110, 124, 144, 0.14);
   flex: 0 0 auto;
+}
+
+.metric-source-filter {
+  background: #ffffff;
+  border-color: #ddd3c8;
+}
+
+.metric-source-latest {
+  background: linear-gradient(180deg, rgba(241, 246, 251, 0.95), rgba(255, 255, 255, 0.95));
+  border-color: #d5dde8;
+}
+
+.profile-source-fixed {
+  background: linear-gradient(180deg, rgba(231, 237, 244, 0.96), rgba(242, 246, 250, 0.96));
+  border-color: #c8d2df;
+}
+
+.profile-source-latest {
+  background: linear-gradient(180deg, rgba(243, 247, 252, 0.96), rgba(255, 255, 255, 0.96));
+  border-color: #d3dbe6;
 }
 
 .profile-label {
@@ -2485,19 +2511,22 @@ body {
 
   .sticky-mobile-shell {
     display: grid;
-    gap: 0.38rem;
+    gap: 0.42rem;
     position: fixed;
     left: 0.52rem;
     right: 0.52rem;
     top: calc(env(safe-area-inset-top) + 0.01rem);
     z-index: 70;
     pointer-events: none;
+    padding-bottom: 0.08rem;
+    overflow: hidden;
+    border-radius: 14px;
   }
 
   .sticky-mobile-shell::before {
     content: "";
     position: absolute;
-    inset: calc(-1 * env(safe-area-inset-top)) -0.34rem -0.46rem -0.34rem;
+    inset: calc(-1 * env(safe-area-inset-top)) -0.34rem -0.8rem -0.34rem;
     background: var(--refit-bg);
     z-index: -1;
   }
@@ -2517,7 +2546,7 @@ body {
   .sticky-mobile-spacer {
     display: block;
     width: 100%;
-    height: var(--sticky-mobile-shell-height, 164px);
+    height: var(--sticky-mobile-shell-height, 206px);
   }
 
   .card,
@@ -2669,28 +2698,44 @@ body {
   #tab-dashboard .metrics-top .metric h2 {
     justify-content: center;
     text-align: center;
-    font-size: 0.62rem;
-    line-height: 1.1;
-    min-height: 1.3em;
+    font-size: 0.66rem;
+    line-height: 1.14;
+    min-height: 1.45em;
     color: #3e4656;
   }
 
   #tab-dashboard .metrics-top .metric .metric-icon {
-    font-size: 0.66rem;
+    font-size: 0.7rem;
   }
 
   #tab-dashboard .metrics-top .metric-value {
     margin-top: 0.1rem;
-    font-size: 0.82rem;
+    font-size: 0.96rem;
     line-height: 1.05;
     text-align: center;
   }
 
   #tab-dashboard .metrics-top .metric-sub {
     margin-top: 0.08rem;
-    font-size: 0.58rem;
-    line-height: 1.12;
+    font-size: 0.62rem;
+    line-height: 1.16;
     text-align: center;
+    min-height: 2.15em;
+  }
+
+  #tab-dashboard .metrics-top .metric:nth-child(1) .metric-icon {
+    color: #1e87d8;
+    background: rgba(30, 135, 216, 0.16);
+  }
+
+  #tab-dashboard .metrics-top .metric:nth-child(2) .metric-icon {
+    color: #ce7b11;
+    background: rgba(206, 123, 17, 0.16);
+  }
+
+  #tab-dashboard .metrics-top .metric:nth-child(3) .metric-icon {
+    color: #bf4f2c;
+    background: rgba(191, 79, 44, 0.16);
   }
 
   #tab-dashboard .bio-metrics {
@@ -2709,28 +2754,49 @@ body {
   #tab-dashboard .bio-metrics .metric h2 {
     justify-content: center;
     text-align: center;
-    font-size: 0.58rem;
-    line-height: 1.12;
-    min-height: 1.3em;
+    font-size: 0.62rem;
+    line-height: 1.16;
+    min-height: 1.45em;
     color: #3d4554;
   }
 
   #tab-dashboard .bio-metrics .metric .metric-icon {
-    font-size: 0.64rem;
+    font-size: 0.68rem;
   }
 
   #tab-dashboard .bio-metrics .metric .metric-value {
     margin-top: 0.08rem;
-    font-size: 0.92rem;
+    font-size: 1rem;
     text-align: center;
     line-height: 1.04;
   }
 
   #tab-dashboard .bio-metrics .metric .metric-sub {
     margin-top: 0.05rem;
-    font-size: 0.54rem;
-    line-height: 1.08;
+    font-size: 0.6rem;
+    line-height: 1.12;
     text-align: center;
+    min-height: 2.2em;
+  }
+
+  #tab-dashboard .bio-metrics .metric:nth-child(1) .metric-icon {
+    color: #8057cc;
+    background: rgba(128, 87, 204, 0.16);
+  }
+
+  #tab-dashboard .bio-metrics .metric:nth-child(2) .metric-icon {
+    color: #2b8a6b;
+    background: rgba(43, 138, 107, 0.16);
+  }
+
+  #tab-dashboard .bio-metrics .metric:nth-child(3) .metric-icon {
+    color: #247fbb;
+    background: rgba(36, 127, 187, 0.16);
+  }
+
+  #tab-dashboard .bio-metrics .metric:nth-child(4) .metric-icon {
+    color: #c66a1a;
+    background: rgba(198, 106, 26, 0.16);
   }
 
   #tab-dashboard #profile-summary-cards {
@@ -2750,33 +2816,147 @@ body {
   #tab-dashboard .profile-label {
     justify-content: center;
     text-align: center;
-    font-size: 0.56rem;
+    font-size: 0.6rem;
     gap: 0.2rem;
     color: #5b6475;
   }
 
   #tab-dashboard .profile-label .bi {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
   }
 
   #tab-dashboard .profile-value {
     margin-top: 0.08rem;
-    font-size: 0.9rem;
+    font-size: 0.98rem;
     line-height: 1.03;
     text-align: center;
   }
 
   #tab-dashboard .profile-note {
     margin-top: 0.04rem;
-    font-size: 0.54rem;
-    line-height: 1.1;
+    font-size: 0.6rem;
+    line-height: 1.14;
     text-align: center;
+    min-height: 2em;
+  }
+
+  #tab-dashboard .profile-source-fixed {
+    background: linear-gradient(180deg, rgba(225, 233, 242, 0.96), rgba(238, 243, 249, 0.98));
+    border-color: #bdc9d8;
+  }
+
+  #tab-dashboard .profile-source-latest {
+    background: linear-gradient(180deg, rgba(242, 246, 251, 0.96), rgba(255, 255, 255, 0.98));
+    border-color: #d2dbe7;
+  }
+
+  #tab-dashboard .profile-source-fixed .profile-label .bi {
+    color: #4f637e;
+    background: rgba(79, 99, 126, 0.14);
+    border-radius: 999px;
+    width: 1.24em;
+    height: 1.24em;
+    display: inline-grid;
+    place-items: center;
+  }
+
+  #tab-dashboard .profile-source-latest .profile-label .bi {
+    color: #2f7fb4;
+    background: rgba(47, 127, 180, 0.15);
+    border-radius: 999px;
+    width: 1.24em;
+    height: 1.24em;
+    display: inline-grid;
+    place-items: center;
   }
 
   #profile-summary-meta {
     margin-top: 0.2rem;
-    font-size: 0.56rem;
+    font-size: 0.6rem;
     line-height: 1.2;
+  }
+
+  #tab-dashboard .metric-source-filter {
+    background: #fff;
+    border-color: #dbd1c5;
+  }
+
+  #tab-dashboard .metric-source-latest {
+    background: linear-gradient(180deg, rgba(241, 246, 251, 0.95), rgba(255, 255, 255, 0.95));
+    border-color: #d3dce8;
+  }
+
+  #tab-dashboard #clinical-overall-banner {
+    padding: 0.46rem 0.5rem;
+    border-radius: 10px;
+    border: 1px solid #dad2c8;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  #tab-dashboard #clinical-overall-banner h4 {
+    font-size: 0.74rem;
+    line-height: 1.2;
+  }
+
+  #tab-dashboard #clinical-overall-banner p {
+    font-size: 0.62rem;
+    line-height: 1.2;
+  }
+
+  #tab-dashboard #clinical-overview-cards {
+    margin-top: 0.34rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .clinical-card {
+    padding: 0.46rem 0.46rem 0.42rem;
+    border-radius: 10px;
+    border: 1px solid #d8d0c6;
+    background: #fff;
+    box-shadow: none;
+    gap: 0.18rem;
+  }
+
+  #tab-dashboard .clinical-card h4 {
+    font-size: 0.68rem;
+    line-height: 1.16;
+  }
+
+  #tab-dashboard .clinical-card p {
+    font-size: 0.6rem;
+    line-height: 1.16;
+  }
+
+  #tab-dashboard .clinical-card .level-badge {
+    font-size: 0.56rem;
+    padding: 0.16rem 0.4rem;
+  }
+
+  #tab-dashboard #daily-comparison {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.34rem;
+  }
+
+  #tab-dashboard .comparison-card {
+    padding: 0.46rem 0.46rem 0.42rem;
+    border-radius: 10px;
+    border: 1px solid #d8d0c6;
+    background: #fff;
+    box-shadow: none;
+    gap: 0.18rem;
+  }
+
+  #tab-dashboard .comparison-card h4 {
+    font-size: 0.7rem;
+    line-height: 1.18;
+  }
+
+  #tab-dashboard .comparison-card p {
+    font-size: 0.6rem;
+    line-height: 1.16;
+    margin: 0;
   }
 
   .registros-overview > p.muted,
@@ -2822,5 +3002,185 @@ body {
 
   .mobile-tabbar {
     display: none !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile Stabilization + Colored Icons (Final)                               */
+/* -------------------------------------------------------------------------- */
+
+.metrics-top .metric:nth-child(1) .metric-icon {
+  color: #1e87d8;
+  background: rgba(30, 135, 216, 0.16);
+}
+
+.metrics-top .metric:nth-child(2) .metric-icon {
+  color: #ce7b11;
+  background: rgba(206, 123, 17, 0.16);
+}
+
+.metrics-top .metric:nth-child(3) .metric-icon {
+  color: #bf4f2c;
+  background: rgba(191, 79, 44, 0.16);
+}
+
+.bio-metrics .metric:nth-child(1) .metric-icon {
+  color: #8057cc;
+  background: rgba(128, 87, 204, 0.16);
+}
+
+.bio-metrics .metric:nth-child(2) .metric-icon {
+  color: #2b8a6b;
+  background: rgba(43, 138, 107, 0.16);
+}
+
+.bio-metrics .metric:nth-child(3) .metric-icon {
+  color: #247fbb;
+  background: rgba(36, 127, 187, 0.16);
+}
+
+.bio-metrics .metric:nth-child(4) .metric-icon {
+  color: #c66a1a;
+  background: rgba(198, 106, 26, 0.16);
+}
+
+#tab-dashboard .profile-source-fixed .profile-label .bi {
+  color: #4f637e;
+  background: rgba(79, 99, 126, 0.14);
+  border-radius: 999px;
+  width: 1.24em;
+  height: 1.24em;
+  display: inline-grid;
+  place-items: center;
+}
+
+#tab-dashboard .profile-source-latest .profile-label .bi {
+  color: #2f7fb4;
+  background: rgba(47, 127, 180, 0.15);
+  border-radius: 999px;
+  width: 1.24em;
+  height: 1.24em;
+  display: inline-grid;
+  place-items: center;
+}
+
+@media (max-width: 700px) {
+  html,
+  body {
+    overflow-x: clip !important;
+  }
+
+  body {
+    padding-top: 0 !important;
+    overscroll-behavior-x: none;
+  }
+
+  .layout {
+    margin-top: calc(env(safe-area-inset-top) + 0.22rem) !important;
+    padding-inline: 0.52rem;
+  }
+
+  .sticky-mobile-shell {
+    top: max(0.06rem, calc(env(safe-area-inset-top) - 0.04rem)) !important;
+    left: 0.52rem !important;
+    right: 0.52rem !important;
+    gap: 0.38rem;
+    padding-bottom: 0.14rem;
+    border-radius: 14px;
+  }
+
+  .sticky-mobile-shell::before {
+    inset: calc(-1 * env(safe-area-inset-top)) 0 -0.68rem 0 !important;
+  }
+
+  .sticky-mobile-spacer {
+    height: var(--sticky-mobile-shell-height, 224px) !important;
+  }
+
+  .filters-row {
+    display: grid !important;
+    grid-template-columns: 30px minmax(0, 1fr) 16px minmax(0, 1fr) 30px 58px 58px !important;
+    grid-template-areas: "prev from sep to next apply today" !important;
+    gap: 0.18rem;
+    align-items: center;
+    width: 100%;
+    overflow: visible !important;
+  }
+
+  #filter-prev-day {
+    grid-area: prev;
+  }
+
+  .filter-from-field {
+    grid-area: from;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .filter-separator {
+    grid-area: sep;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    font-size: 0.56rem;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    color: #6f7684;
+  }
+
+  .filter-to-field {
+    grid-area: to;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  #filter-next-day {
+    grid-area: next;
+  }
+
+  .filter-apply-btn {
+    grid-area: apply;
+    min-width: 58px;
+  }
+
+  .filter-today-btn {
+    grid-area: today;
+    min-width: 58px;
+  }
+
+  .filter-summary {
+    display: none !important;
+  }
+
+  .compact-field input {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0.3rem 0.3rem;
+    font-size: 0.72rem;
+  }
+
+  .filter-nav-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0.16rem;
+    font-size: 0.7rem;
+  }
+
+  .filter-apply-btn,
+  .filter-today-btn {
+    min-height: 32px;
+    padding: 0.2rem 0.2rem;
+    font-size: 0.68rem;
+    border-radius: 8px;
+  }
+
+  .status-inline {
+    margin-top: 0;
+    padding: 0.24rem 0.36rem;
+    font-size: 0.64rem;
+    border-radius: 8px;
   }
 }
